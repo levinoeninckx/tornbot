@@ -11,16 +11,25 @@ public class VerifyCommandModule(TornApiClient client) : ApplicationCommandModul
     public async Task<InteractionMessageProperties> VerifyUser(User? user = null)
     {
         
-        var guildUser = Context.User as GuildUser;
+        var guildUser = user == null ? Context.User as GuildUser : user as GuildUser;
+
+        if (guildUser == null)
+        {
+            return "User not found";
+        }
         
-        if(guildUser == null) throw new InvalidOperationException("User is not a guild user");
-        
-        var discordId = user != null ? user.Id : guildUser.Id;
-        var tornUserProfile = await client.GetUserProfileByDiscordId(discordId);
+        var tornUserProfile = await client.GetUserProfileByDiscordId(guildUser.Id);
 
         var tornNicname = $"[{tornUserProfile.Id}] {tornUserProfile.Name}";
-        
-        if(Context.Guild == null) throw new InvalidOperationException("Guild is null");
+
+        if (Context.Guild == null)
+        {
+            return new()
+            {
+                Content = $"You cannot verify yourself outside of a server, please change this manually to: {tornNicname}",
+                Flags = MessageFlags.Ephemeral
+            };
+        }
 
         if (Context.Guild.OwnerId == guildUser.Id)
         {

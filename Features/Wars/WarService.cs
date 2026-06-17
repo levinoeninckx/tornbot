@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using NetCord;
 using NetCord.Rest;
 using TornBot.Bot.Infrastructure.TornApi;
+using TornBot.Bot.Shared;
 using Channel = NetCord.Channel;
 
 namespace TornBot.Bot.Features.Wars;
@@ -18,12 +19,14 @@ public class WarService : BackgroundService
     private TornApiClient _client;
     private Dictionary<int, FactionMember> _trackedMembersDictionary = [];
     private string _tornCityShortAttackBaseUrl = "https://tcy.sh/a/";
+    private FactionService _factionService;
 
-    public WarService(ChannelService channelService, RestClient restClient, TornApiClient client)
+    public WarService(ChannelService channelService, RestClient restClient, TornApiClient client, FactionService factionService)
     {
         _channelService = channelService;
         _restClient = restClient;
         _client = client;
+        _factionService = factionService;
     }
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -33,7 +36,8 @@ public class WarService : BackgroundService
             var channelId = _channelService.GetChannelId(TrackingChannel.War);
             if(channelId == null) continue;
 
-            var rankedWars = await _client.GetRankedWarsAsync(41702); // TODO: move faction id to somewhere else
+            var factionid = _factionService.FactionId();
+            var rankedWars = await _client.GetRankedWarsAsync(factionid);
             var latestWar = rankedWars.RankedWars.First();
 
             if(latestWar.End != 0)
@@ -42,7 +46,7 @@ public class WarService : BackgroundService
                 continue;
             }
 
-            var enemyFactionId = latestWar.Factions.Single(f => f.Id != 41702).Id;
+            var enemyFactionId = latestWar.Factions.Single(f => f.Id != factionid).Id;
 
             var membersResponse = await _client.GetFactionMembersAsync(enemyFactionId);
             var enemyMembers = membersResponse.Members;

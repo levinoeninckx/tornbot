@@ -127,6 +127,7 @@ public class TornApiClient
     public async Task<bool> ValidateKeyAsync(string key, CancellationToken ct = default)
     {
         using var response = await _http.GetAsync($"key/info?key={key}", ct);
+        
         return response.IsSuccessStatusCode;
     }
 }

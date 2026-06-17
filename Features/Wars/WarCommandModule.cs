@@ -1,19 +1,21 @@
 using System.Text;
-using FactionBot.Infrastructure.TornApi;
 using NetCord;
 using NetCord.Services.ApplicationCommands;
 using TornBot.Bot.Infrastructure.TornApi;
+using TornBot.Bot.Shared;
 
-namespace FactionBot.Features.Wars;
+namespace TornBot.Bot.Features.Wars;
 
 [SlashCommand("war", "all ranked war related commands")]
 public class WarCommandModule : ApplicationCommandModule<ApplicationCommandContext>
 {
     private TornApiClient _client;
+    private readonly FactionService _factionService;
 
-    public WarCommandModule(TornApiClient client)
+    public WarCommandModule(TornApiClient client, FactionService factionService)
     {
         _client = client;
+        _factionService = factionService;
     }
 
     [SubSlashCommand("targets", "shows a list of all hittable targets")]
@@ -26,12 +28,13 @@ public class WarCommandModule : ApplicationCommandModule<ApplicationCommandConte
             Recently active enemies
         */
 
-        var rankedWars = await _client.GetRankedWarsAsync(41702); //TODO: faction id from appsettings
+        var factionId = _factionService.FactionId();
+        var rankedWars = await _client.GetRankedWarsAsync(factionId);
         var latestWar = rankedWars.RankedWars.First();
 
         if(latestWar.End != null && latestWar.Winner != null) return $"No active war";
 
-        var opponent = latestWar.Factions.Single(f => f.Id != 41702);
+        var opponent = latestWar.Factions.Single(f => f.Id != factionId);
 
         var response = await _client.GetFactionMembersAsync(opponent.Id);
 
@@ -64,12 +67,13 @@ public class WarCommandModule : ApplicationCommandModule<ApplicationCommandConte
     [SubSlashCommand("hospital", "shows a list of all enemies in the hospital")]
     public async Task<string> ShowHospitalizedEnemies()
     {
-        var rankedWars = await _client.GetRankedWarsAsync(41702); //TODO: faction id from appsettings
+        var facionId = _factionService.FactionId(); 
+        var rankedWars = await _client.GetRankedWarsAsync(facionId);
         var latestWar = rankedWars.RankedWars.First();
 
         if(latestWar.End != null && latestWar.Winner != null) return $"No active war";
 
-        var opponent = latestWar.Factions.Single(f => f.Id != 41702);
+        var opponent = latestWar.Factions.Single(f => f.Id != facionId);
 
         var response = await _client.GetFactionMembersAsync(opponent.Id);
 

@@ -29,8 +29,9 @@ builder.Services
     .AddComponentInteractions<ButtonInteraction, ButtonInteractionContext>();
 
 // Set DI services
-builder.Services.AddSingleton(_ => new ChannelService());
+builder.Services.AddSingleton<ChannelService>();
 builder.Services.AddSingleton<ApiKeyService>();
+builder.Services.AddSingleton<FactionService>();
 builder.Services.AddHttpClient<TornApiClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.torn.com/v2/");
