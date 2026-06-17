@@ -1,0 +1,47 @@
+﻿using discordBotTest.Shared;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using NetCord;
+using NetCord.Hosting.Gateway;
+using NetCord.Hosting.Services;
+using NetCord.Hosting.Services.ApplicationCommands;
+using NetCord.Hosting.Services.ComponentInteractions;
+using NetCord.Services.ComponentInteractions;
+using TornBot.Bot.Features.Wars;
+using TornBot.Bot.Infrastructure.TornApi;
+using TornBot.Bot.Shared;
+
+var builder = Host.CreateApplicationBuilder(args);
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>();
+}
+
+var discordBotToken = builder.Configuration["Discord:Token"];
+
+if(discordBotToken == null) throw new InvalidOperationException("Discord bot token is not set");
+
+builder.Services
+    .AddDiscordGateway(options => options.Token = discordBotToken)
+    .AddApplicationCommands()
+    .AddComponentInteractions<ButtonInteraction, ButtonInteractionContext>();
+
+// Set DI services
+builder.Services.AddSingleton(_ => new ChannelService());
+builder.Services.AddSingleton<ApiKeyService>();
+builder.Services.AddHttpClient<TornApiClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.torn.com/v2/");
+});
+
+// Set backgroundservices
+builder.Services.AddHostedService<ChainService>();
+builder.Services.AddHostedService<WarService>();
+
+var host = builder.Build();
+
+host.AddModules(typeof(Program).Assembly);
+
+await host.RunAsync();
