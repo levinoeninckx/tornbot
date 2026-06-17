@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using System.Text.Json;
 using discordBotTest.Features.Chains;
 using discordBotTest.Shared;
@@ -128,6 +129,22 @@ public class TornApiClient
     {
         using var response = await _http.GetAsync($"key/info?key={key}", ct);
         
-        return response.IsSuccessStatusCode;
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            throw new Exception($"Torn API error: {response.StatusCode} - {body}");
+        }
+
+        try
+        {
+            await response.Content.ReadFromJsonAsync<KeyInfoResponse>(cancellationToken: ct);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        
+        return true;
+        
     }
 }
