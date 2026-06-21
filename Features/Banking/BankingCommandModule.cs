@@ -31,7 +31,7 @@ public class BankingCommandModule : ApplicationCommandModule<ApplicationCommandC
 
         if (bankerRole == null)
         {
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Please create the 'Banker' role in the server");
         }
         
         var user = Context.User as GuildUser;

@@ -4,6 +4,7 @@ using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ComponentInteractions;
 using TornBot.Bot.Infrastructure.TornApi;
+using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Banking;
 
@@ -42,12 +43,20 @@ public class BankingButtonInteractionModule : ComponentInteractionModule<ButtonI
     public async Task DeclineBankingRequest(string requesteeId)
     {
         var guildUser = Context.User as GuildUser;
-        var decliner = await _client.GetUserProfileByDiscordId(guildUser!.Id);
 
-        var embed = new EmbedProperties()
+        if (guildUser == null)
+        {
+            await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
+            return;
+        }
+        
+        var decliner = await _client.GetUserProfileByDiscordId(guildUser.Id);
+        var requestee = await _client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId));
+
+        var embed = new EmbedProperties
         {
             Title = "Banking request declined",
-            Description = $"https://tcy.sh/p/{requesteeId}'s request was accepted by https://tcy.sh/p/{decliner.Id}",
+            Description = $"[{requestee.Name}](https://tcy.sh/p/{requestee.Id})'s request was declined by [{decliner.Name}](https://tcy.sh/p/{decliner.Id})",
         };
 
         await Context.Message.ModifyAsync(message => 
