@@ -3,6 +3,7 @@ using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
 using TornBot.Bot.Infrastructure.TornApi;
+using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Banking;
 
@@ -17,13 +18,32 @@ public class BankingCommandModule : ApplicationCommandModule<ApplicationCommandC
     }
 
     [SubSlashCommand("request", "put in a request for x amount")]
-    public async Task BankRequest(int amount)
+    public async Task<InteractionMessageProperties> BankRequest(int amount)
     {
-        var bankerRoleId = Context.Guild?.Roles.Values.Single(r => r.Name == "banker").Id;
-        var user = Context.User as GuildUser;
-        var message = await CreateMessageAsync<InteractionMessageProperties>(bankerRoleId!.Value, user!.Id, amount);
+        if (Context.Guild == null)
+        {
+            // TODO: add logging
+            // TODO: add error message event
+            return "something went wrong while processing your request. Please try again later.";
+        }
+        
+        var bankerRole = Context.Guild.Roles.Values.SingleOrDefault(r => r.Name == "Banker");
 
-        await Context.Interaction.SendResponseAsync(InteractionCallback.Message(message));
+        if (bankerRole == null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
+        }
+        
+        var user = Context.User as GuildUser;
+        
+        if(user == null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
+        }
+        
+        var message = await CreateMessageAsync<InteractionMessageProperties>(bankerRole.Id, user.Id, amount);
+
+        return message;
     }
 
     private async Task<T> CreateMessageAsync<T>(ulong bankerRoleId, ulong requesteeId, int amount) where T : IMessageProperties, new()
