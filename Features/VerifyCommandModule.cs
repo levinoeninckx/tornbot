@@ -2,31 +2,32 @@ using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
 using TornBot.Bot.Infrastructure.TornApi;
+using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features;
 
 public class VerifyCommandModule(TornApiClient client) : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SlashCommand("verify", "Verify your torn account with discord")]
-    public async Task<InteractionMessageProperties> VerifyUser(User? user = null)
+    public async Task<InteractionMessageProperties> VerifyUser([SlashCommandParameter] User? user = null)
     {
         
         var guildUser = user == null ? Context.User as GuildUser : user as GuildUser;
 
         if (guildUser == null)
         {
-            return "User not found";
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("User not found.");
         }
         
         var tornUserProfile = await client.GetUserProfileByDiscordId(guildUser.Id);
 
-        var tornNicname = $"[{tornUserProfile.Id}] {tornUserProfile.Name}";
+        var tornNickname = $"{tornUserProfile.Name} [{tornUserProfile.Id}]";
 
         if (Context.Guild == null)
         {
             return new()
             {
-                Content = $"You cannot verify yourself outside of a server, please change this manually to: {tornNicname}",
+                Content = $"You cannot verify yourself outside of a server, please change this manually to: {tornNickname}",
                 Flags = MessageFlags.Ephemeral
             };
         }
@@ -35,13 +36,13 @@ public class VerifyCommandModule(TornApiClient client) : ApplicationCommandModul
         {
             return new()
             {
-                Content = $"You cannot verify yourself as the owner of the server, please change this manually to: {tornNicname}",
+                Content = $"You cannot verify yourself as the owner of the server, please change this manually to: {tornNickname}",
                 Flags = MessageFlags.Ephemeral
             };
         }
 
         await Context.Guild.ModifyUserAsync(Context.User.Id,
-            properties => properties.Nickname = $"[{tornUserProfile.Id}] {tornUserProfile.Name}");
+            properties => properties.Nickname = tornNickname);
         
         return new()
         {
@@ -51,7 +52,7 @@ public class VerifyCommandModule(TornApiClient client) : ApplicationCommandModul
                 {
                     Title = "Verified",
                     Description =
-                        $"{Context.User.Username} has been verified as [[{tornUserProfile.Id}] {tornUserProfile.Name}](https://tcy.sh/p/{tornUserProfile.Id})"
+                        $"{Context.User.Username} has been verified as [{tornNickname}](https://tcy.sh/p/{tornUserProfile.Id})"
                 }
             ]
         };
