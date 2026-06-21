@@ -41,7 +41,7 @@ public class VerifyCommandModule(TornApiClient client) : ApplicationCommandModul
             };
         }
 
-        await Context.Guild.ModifyUserAsync(Context.User.Id,
+        await Context.Guild.ModifyUserAsync(guildUser.Id,
             properties => properties.Nickname = tornNickname);
         
         return new()
