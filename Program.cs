@@ -1,4 +1,5 @@
 ﻿using discordBotTest.Shared;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -9,6 +10,7 @@ using NetCord.Hosting.Services.ApplicationCommands;
 using NetCord.Hosting.Services.ComponentInteractions;
 using NetCord.Services.ComponentInteractions;
 using TornBot.Bot.Features.Wars;
+using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
 
@@ -18,6 +20,8 @@ if (builder.Environment.IsDevelopment())
 {
     builder.Configuration.AddUserSecrets<Program>();
 }
+
+builder.Services.AddDbContext<TornbotContext>(options => options.UseSqlite(builder.Configuration.GetConnectionString("Tornbot")));
 
 var discordBotToken = builder.Configuration["Discord:Token"];
 

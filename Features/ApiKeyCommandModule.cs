@@ -2,13 +2,16 @@ using discordBotTest.Shared;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
+using TornBot.Bot.Domain.Enums;
+using TornBot.Bot.Domain.Models;
+using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features;
 
 [SlashCommand("key", "key commands")]
-public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornApiClient client) : ApplicationCommandModule<ApplicationCommandContext>
+public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornApiClient client, TornbotContext context) : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("set", "set the api key")]
     public async Task<InteractionMessageProperties> SetApiKey([SlashCommandParameter(Description = "Your api key")]string key)
@@ -23,7 +26,10 @@ public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornApiClient clie
                 Content = "Invalid API key"
             };
         }
-        
+
+        var apiKey = new ApiKey(1, key, AccessLevel.Public);
+        context.ApiKeys.Add(apiKey);
+        await context.SaveChangesAsync();
         apiKeyService.SetApiKey(key);
         return new()
         {
