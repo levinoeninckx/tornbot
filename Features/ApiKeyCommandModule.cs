@@ -79,6 +79,13 @@ public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornApiClient clie
     [SubSlashCommand("list", "list all your api keys")]
     public async Task<InteractionMessageProperties> ListApiKeys([SlashCommandParameter(Description = "show keys for specific user")] GuildUser? user = null)
     {
+        var keys = await apiKeyService.GetAllApiKeysAsync();
+        
+        if (!keys.Any())
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("No api keys found");
+        }
+        
         var guildUser = user ?? Context.User as GuildUser;
 
         if (guildUser == null)
