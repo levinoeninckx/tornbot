@@ -3,15 +3,10 @@ using TornBot.Bot.Domain.Models;
 
 namespace TornBot.Bot.Infrastructure;
 
-public class TornbotContext : DbContext
+public class TornbotContext(DbContextOptions<TornbotContext> options) : DbContext(options)
 {
     public DbSet<ApiKey> ApiKeys { get; set; }
 
-    public TornbotContext(DbContextOptions<TornbotContext> options) : base(options)
-    {
-        
-    }
-    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ApiKey>()

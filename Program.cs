@@ -21,7 +21,11 @@ if (builder.Environment.IsDevelopment())
     builder.Configuration.AddUserSecrets<Program>();
 }
 
-builder.Services.AddDbContext<TornbotContext>(options => options.UseSqlite(builder.Configuration.GetConnectionString("Tornbot")));
+var connectionString = builder.Configuration["ConnectionStrings:Tornbot"];
+
+if (string.IsNullOrWhiteSpace(connectionString)) throw new InvalidOperationException("Connection string is not set");
+
+builder.Services.AddDbContext<TornbotContext>(options => options.UseNpgsql(connectionString));
 
 var discordBotToken = builder.Configuration["Discord:Token"];
 
