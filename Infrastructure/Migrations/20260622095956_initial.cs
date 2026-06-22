@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace TornBot.Bot.Migrations
+namespace TornBot.Bot.Infrastructure.Migrations
 {
     /// <inheritdoc />
     public partial class initial : Migration

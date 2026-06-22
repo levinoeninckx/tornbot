@@ -8,7 +8,7 @@ using TornBot.Bot.Infrastructure;
 
 #nullable disable
 
-namespace TornBot.Bot.Migrations
+namespace TornBot.Bot.Infrastructure.Migrations
 {
     [DbContext(typeof(TornbotContext))]
     partial class TornbotContextModelSnapshot : ModelSnapshot
