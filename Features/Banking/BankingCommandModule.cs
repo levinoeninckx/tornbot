@@ -16,7 +16,8 @@ public class BankingCommandModule : ApplicationCommandModule<ApplicationCommandC
     {
         _client = client;
     }
-
+    
+    // TODO: refactor, createMessgae -> static, return InteractionMessageProperties
     [SubSlashCommand("request", "put in a request for x amount")]
     public async Task<InteractionMessageProperties> BankRequest(int amount)
     {

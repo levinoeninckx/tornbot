@@ -1,4 +1,5 @@
 ﻿using discordBotTest.Shared;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -9,6 +10,7 @@ using NetCord.Hosting.Services.ApplicationCommands;
 using NetCord.Hosting.Services.ComponentInteractions;
 using NetCord.Services.ComponentInteractions;
 using TornBot.Bot.Features.Wars;
+using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
 
@@ -19,6 +21,14 @@ if (builder.Environment.IsDevelopment())
     builder.Configuration.AddUserSecrets<Program>();
 }
 
+builder.Services.AddLogging();
+
+var connectionString = builder.Configuration["ConnectionStrings:Tornbot"];
+
+if (string.IsNullOrWhiteSpace(connectionString)) throw new InvalidOperationException("Connection string is not set");
+
+builder.Services.AddDbContext<TornbotContext>(options => options.UseNpgsql(connectionString), ServiceLifetime.Transient, ServiceLifetime.Transient);
+
 var discordBotToken = builder.Configuration["Discord:Token"];
 
 if(discordBotToken == null) throw new InvalidOperationException("Discord bot token is not set");
@@ -28,14 +38,15 @@ builder.Services
     .AddApplicationCommands()
     .AddComponentInteractions<ButtonInteraction, ButtonInteractionContext>();
 
-// Set DI services
-builder.Services.AddSingleton<ChannelService>();
-builder.Services.AddSingleton<ApiKeyService>();
-builder.Services.AddSingleton<FactionService>();
 builder.Services.AddHttpClient<TornApiClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.torn.com/v2/");
 });
+
+// Set DI services
+builder.Services.AddTransient<ApiKeyService>();
+builder.Services.AddSingleton<ChannelService>();
+builder.Services.AddSingleton<FactionService>();
 
 // Set backgroundservices
 builder.Services.AddHostedService<ChainService>();

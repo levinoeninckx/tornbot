@@ -28,14 +28,14 @@ public class TornApiClient
 
     private async Task<T> GetAsync<T>(string endpoint, CancellationToken ct = default)
     {
-        var apiKey = _apiKeyService.GetApiKey();
+        var apiKey = await _apiKeyService.GetPublicApiKeyAsync();
 
         if (apiKey == null)
         {
             throw new Exception("No API key set");
         }
-        
-        using var response = await _http.GetAsync($"{endpoint}?key={apiKey}", ct);
+
+        using var response = await _http.GetAsync($"{endpoint}?key={apiKey.Key}", ct);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -52,7 +52,7 @@ public class TornApiClient
 
         return result;
     }
-    
+
     public async Task<ChainState> GetChainStateAsync(CancellationToken ct = default)
     {
         return await GetAsync<ChainState>("faction/chain", ct);
@@ -61,12 +61,13 @@ public class TornApiClient
     public async Task<Profile> GetUserProfileByDiscordId(ulong discordId, CancellationToken ct = default)
     {
         var userDiscordResponse = await GetAsync<UserDiscordResponse>($"user/{discordId}/discord", ct);
-
-        var userBasicResponse = await GetAsync<UserBasicResponse>($"user/{userDiscordResponse.Discord.UserId}/basic", ct);
+        
+        var userBasicResponse =
+            await GetAsync<UserBasicResponse>($"user/{userDiscordResponse.Discord.UserId}/basic", ct);
 
         return userBasicResponse.Profile;
     }
-    
+
     public Task<FactionRankedWarsResponse> GetRankedWarsAsync(
         int factionId,
         CancellationToken ct = default)
@@ -75,7 +76,7 @@ public class TornApiClient
             $"faction/{factionId}/rankedwars",
             ct);
     }
-    
+
     public Task<RankedWarResponse> GetRankedWarAsync(
         int warId,
         CancellationToken ct = default)
@@ -84,7 +85,7 @@ public class TornApiClient
             $"torn/rankedwars/{warId}",
             ct);
     }
-    
+
     public Task<RankedWarReportResponse> GetRankedWarReportAsync(
         int warId,
         CancellationToken ct = default)
@@ -93,12 +94,12 @@ public class TornApiClient
             $"torn/rankedwars/{warId}/report",
             ct);
     }
-    
+
     public Task<FactionMembersResponse> GetFactionMembersAsync(int factionId, CancellationToken ct = default)
     {
         return GetAsync<FactionMembersResponse>($"faction/{factionId}/members", ct);
     }
-    
+
     public Task<UserResponse> GetUserAsync(
         int userId,
         CancellationToken ct = default)
@@ -107,7 +108,7 @@ public class TornApiClient
             $"user/{userId}",
             ct);
     }
-    
+
     public async Task<List<UserResponse>> GetUsersAsync(
         IEnumerable<int> userIds,
         CancellationToken ct = default)
@@ -124,27 +125,13 @@ public class TornApiClient
 
         return results;
     }
-    
-    public async Task<bool> ValidateKeyAsync(string key, CancellationToken ct = default)
+
+    public async Task<KeyInfo?> GetKeyInfoAsync(string key, CancellationToken ct = default)
     {
         using var response = await _http.GetAsync($"key/info?key={key}", ct);
         
-        if (!response.IsSuccessStatusCode)
-        {
-            var body = await response.Content.ReadAsStringAsync(ct);
-            throw new Exception($"Torn API error: {response.StatusCode} - {body}");
-        }
+        var keyInfoResponse = await response.Content.ReadFromJsonAsync<KeyInfoResponse>(cancellationToken: ct);
 
-        try
-        {
-            await response.Content.ReadFromJsonAsync<KeyInfoResponse>(cancellationToken: ct);
-        }
-        catch (Exception)
-        {
-            return false;
-        }
-        
-        return true;
-        
+        return keyInfoResponse?.Info;
     }
 }
