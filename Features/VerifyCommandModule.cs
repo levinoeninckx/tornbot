@@ -52,7 +52,7 @@ public class VerifyCommandModule(TornApiClient client) : ApplicationCommandModul
                 {
                     Title = "Verified",
                     Description =
-                        $"{Context.User.Username} has been verified as [{tornNickname}](https://tcy.sh/p/{tornUserProfile.Id})"
+                        $"{guildUser.Username} has been verified as [{tornNickname}](https://tcy.sh/p/{tornUserProfile.Id})"
                 }
             ]
         };

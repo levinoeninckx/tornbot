@@ -83,7 +83,7 @@ public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornApiClient clie
         
         if (!keys.Any())
         {
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("No api keys found");
+            return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("No keys","No api keys found");
         }
         
         var guildUser = user ?? Context.User as GuildUser;

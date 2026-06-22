@@ -1,3 +1,4 @@
+using NetCord;
 using NetCord.Rest;
 
 namespace TornBot.Bot.Shared;
@@ -31,6 +32,22 @@ public static class MessageFactory
                     Description = error ?? "Something went wrong. Please try again later."
                 }
             ]
+        };
+    }
+
+    public static T CreateEphermalMessage<T>(string title, string message) where T : IMessageProperties, new()
+    {
+        return new T
+        {
+            Embeds =
+            [
+                new EmbedProperties
+                {
+                    Title = title,
+                    Description = message
+                }
+            ],
+            Flags = MessageFlags.Ephemeral
         };
     }
 }
