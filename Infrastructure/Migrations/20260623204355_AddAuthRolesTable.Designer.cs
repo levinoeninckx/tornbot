@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TornBot.Bot.Infrastructure;
@@ -11,9 +12,11 @@ using TornBot.Bot.Infrastructure;
 namespace TornBot.Bot.Infrastructure.Migrations
 {
     [DbContext(typeof(TornbotContext))]
-    partial class TornbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260623204355_AddAuthRolesTable")]
+    partial class AddAuthRolesTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

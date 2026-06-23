@@ -1,12 +1,13 @@
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
+using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features;
 
-public class VerifyCommandModule(TornApiClient client) : ApplicationCommandModule<ApplicationCommandContext>
+public class VerifyCommandModule(TornApiClient client, FactionService factionService) : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SlashCommand("verify", "Verify your torn account with discord")]
     public async Task<InteractionMessageProperties> VerifyUser([SlashCommandParameter] User? user = null)
@@ -41,8 +42,24 @@ public class VerifyCommandModule(TornApiClient client) : ApplicationCommandModul
             };
         }
 
+
+
+        var guildRoles = await Context.Guild.GetRolesAsync();
+        var factionLink = await factionService.GetFactionByGuildIdAsync(Context.Guild.Id);
+        if (factionLink == null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Faction not configured. Please use the '/configure faction' command first");
+        }
+        
+        var faction = await client.GetFactionBasicAsync(factionLink.FactionId);
+        
+            
         await Context.Guild.ModifyUserAsync(guildUser.Id,
-            properties => properties.Nickname = tornNickname);
+            properties =>
+            {
+                properties
+                    .WithNickname(tornNickname);
+            });
         
         return new()
         {
@@ -54,7 +71,7 @@ public class VerifyCommandModule(TornApiClient client) : ApplicationCommandModul
                     Description =
                         $"{guildUser.Username} has been verified as [{tornNickname}](https://tcy.sh/p/{tornUserProfile.Id})"
                 }
-            ]
+            ],
         };
     }
 }

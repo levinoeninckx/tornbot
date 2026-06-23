@@ -68,6 +68,15 @@ public class TornApiClient
         return userBasicResponse.Profile;
     }
 
+    public async Task<Faction?> GetUserFactionAsync(int userId, CancellationToken ct = default)
+    {
+        var userFacionResponse = await GetAsync<UserFactionResponse>($"user/{userId}/faction", ct);
+
+        if (userFacionResponse.Faction == null) return null;
+        
+        return userFacionResponse.Faction;
+    }
+
     public Task<FactionRankedWarsResponse> GetRankedWarsAsync(
         int factionId,
         CancellationToken ct = default)
@@ -133,5 +142,12 @@ public class TornApiClient
         var keyInfoResponse = await response.Content.ReadFromJsonAsync<KeyInfoResponse>(cancellationToken: ct);
 
         return keyInfoResponse?.Info;
+    }
+    
+    public async Task<Factionbasic> GetFactionBasicAsync(int factionId, CancellationToken ct = default)
+    {
+        var response = await GetAsync<FactionBasicResponse>($"faction/{factionId}/basic", ct);
+        
+        return response.Faction;
     }
 }

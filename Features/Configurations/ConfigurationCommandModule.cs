@@ -1,13 +1,17 @@
 using discordBotTest.Shared;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
+using TornBot.Bot.Infrastructure;
+using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Configurations;
 
 [SlashCommand("configure", "Configure command")]
-public class ConfigurationCommandModule(ChannelService channelService, FactionService factionService)
+public class ConfigurationCommandModule(ChannelService channelService, FactionService factionService, TornApiClient client, TornbotContext context)
     : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("chain", "configure this channel for chain monitoring")]
@@ -33,12 +37,58 @@ public class ConfigurationCommandModule(ChannelService channelService, FactionSe
     }
     
     [SubSlashCommand("faction", "configure this bot for your faction")]
-    public InteractionMessageProperties SetFaction([SlashCommandParameter]int factionId)
+    public async Task<InteractionMessageProperties> SetFaction()
     {
-        factionService.SetFactionId(factionId);
+        if (Context.Guild == null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
+        }
+
+        var tonrProfile = await client.GetUserProfileByDiscordId(Context.User.Id);
+        var userFaction = await client.GetUserFactionAsync(tonrProfile.Id);
+        
+        if (userFaction == null) return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("You are not in a faction");
+        
+        var success = await factionService.AddFactionAsync(userFaction.Id, Context.Guild.Id);
+        
+        var faction = await client.GetFactionBasicAsync(userFaction.Id);
+        
+        var guildRoles = await Context.Guild.GetRolesAsync();
+
+        if (guildRoles.All(r => r.Name != faction.Name))
+        {
+            var roleProperties = new RoleProperties()
+            {
+                Name = faction.Name,
+            };
+            await Context.Guild.CreateRoleAsync(roleProperties);
+        }
+        
+        return success ? MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", "Faction registered") : MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
+    }
+
+    [SubSlashCommand("verification", "configure verification")]
+    public async Task<InteractionMessageProperties> ConfigureVerification()
+    {
+        var defaultRoles = await context.AuthRoles.Where(r => r.IsDefault).ToListAsync();
         return new()
         {
-            Content = "Faction set",
+            Content = "Configure verification",
+            Components =
+            [
+                new RoleMenuProperties("default_verification_roles")
+                    .WithPlaceholder("Select default assigned roles")
+                    .WithMaxValues(25)
+                    .WithDefaultValues(defaultRoles.Select(r => r.RoleId).ToList()),
+                new RoleMenuProperties("allowed_verification_roles")
+                    .WithPlaceholder("Select roles allowed to use verification commands")
+                    .WithMaxValues(25),
+                new ChannelMenuProperties("verification_channels")
+                    .WithPlaceholder("Select channels allowed to use verification commands")
+                    .WithMaxValues(25)
+                    .WithChannelTypes([ChannelType.TextGuildChannel])
+            ],
+            Flags = MessageFlags.Ephemeral
         };
     }
 }
