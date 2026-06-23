@@ -79,14 +79,7 @@ public class ConfigurationCommandModule(ChannelService channelService, FactionSe
                 new RoleMenuProperties("default_verification_roles")
                     .WithPlaceholder("Select default assigned roles")
                     .WithMaxValues(25)
-                    .WithDefaultValues(defaultRoles.Select(r => r.RoleId).ToList()),
-                new RoleMenuProperties("allowed_verification_roles")
-                    .WithPlaceholder("Select roles allowed to use verification commands")
-                    .WithMaxValues(25),
-                new ChannelMenuProperties("verification_channels")
-                    .WithPlaceholder("Select channels allowed to use verification commands")
-                    .WithMaxValues(25)
-                    .WithChannelTypes([ChannelType.TextGuildChannel])
+                    .WithDefaultValues(defaultRoles.Select(r => r.RoleId).ToList())
             ],
             Flags = MessageFlags.Ephemeral
         };
