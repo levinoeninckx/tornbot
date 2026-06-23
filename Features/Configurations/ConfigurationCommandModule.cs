@@ -70,6 +70,13 @@ public class ConfigurationCommandModule(ChannelService channelService, FactionSe
     [SubSlashCommand("verification", "configure verification")]
     public async Task<InteractionMessageProperties> ConfigureVerification()
     {
+        var faction = await context.Factions.SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+
+        if (faction == null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("register faction first with /configure faction");
+        }
+        
         var defaultRoles = await context.AuthRoles.Where(r => r.IsDefault).ToListAsync();
         return new()
         {
