@@ -101,6 +101,11 @@ public class ConfigurationCommandModule(ChannelService channelService, TornApiCl
                         .WithPlaceholder("Select roles allowed to use verify commands")
                         .WithMaxValues(25)
                         .WithDefaultValues(config.AllowedRoleIds),
+                    new TextDisplayProperties("Restricted channels"),
+                    new ChannelMenuProperties("restricted_channels")
+                        .WithPlaceholder("Confine commands to these channels")
+                        .WithMaxValues(25)
+                        .WithDefaultValues(config.RestrictedChannelIds),
                     new TextDisplayProperties("Auto verification channel"),
                     new ChannelMenuProperties("auto_verification_channel")
                         .WithPlaceholder("Select channel for verification messages for new users")

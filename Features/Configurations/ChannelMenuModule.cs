@@ -58,4 +58,51 @@ public class ChannelMenuModule(TornbotContext context, ILogger<ChannelMenuModule
 
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
     }
+
+    [ComponentInteraction("restricted_channels")]
+    public async Task SetRestrictedChannels()
+    {
+        if (Context.Guild == null)
+        {
+            return;
+        }
+        
+        var faction = await context.Factions
+            .Include(f => f.ModuleConfigs)
+            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild.Id);
+
+        if (faction == null)
+        {
+            var msg = MessageFactory.CreateErrorMessage<InteractionMessageProperties>("register faction first with /configure faction");
+            await Context.Interaction.SendFollowupMessageAsync(msg);
+            await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
+            return;
+        }
+        
+        var moduleConfig = faction.ModuleConfigs.SingleOrDefault(c => c.Module == Module.Verification);
+        var config = moduleConfig?.Config.Deserialize<VerificationConfig>();
+
+        if (config == null || moduleConfig == null)
+        {
+            var msg = MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
+            await Context.Interaction.SendFollowupMessageAsync(msg);
+            await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
+            return;
+        }
+        
+        config.RestrictedChannelIds = Context.SelectedValues.Select(x => x.Id).ToHashSet();
+        moduleConfig.Config = JsonDocument.Parse(JsonSerializer.Serialize(config));
+
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogCritical(ex, "Failed to save module config");
+            await Context.Interaction.SendFollowupMessageAsync(MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to save module config"));
+        }
+
+        await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
+    }
 }
