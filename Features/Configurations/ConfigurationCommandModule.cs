@@ -1,6 +1,5 @@
 using discordBotTest.Shared;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
@@ -10,7 +9,7 @@ using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Configurations;
 
-[SlashCommand("configure", "Configure command")]
+[SlashCommand("configure", "Configure command", DefaultGuildPermissions = Permissions.Administrator)]
 public class ConfigurationCommandModule(ChannelService channelService, FactionService factionService, TornApiClient client, TornbotContext context)
     : ApplicationCommandModule<ApplicationCommandContext>
 {

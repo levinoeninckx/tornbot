@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NetCord;
+using NetCord.Gateway;
 using NetCord.Hosting.Gateway;
 using NetCord.Hosting.Services;
 using NetCord.Hosting.Services.ApplicationCommands;
@@ -34,7 +35,12 @@ var discordBotToken = builder.Configuration["Discord:Token"];
 if(discordBotToken == null) throw new InvalidOperationException("Discord bot token is not set");
 
 builder.Services
-    .AddDiscordGateway(options => options.Token = discordBotToken)
+    .AddDiscordGateway(options =>
+    {
+        options.Token = discordBotToken;
+        options.Intents = GatewayIntents.GuildUsers;
+    })
+    .AddGatewayHandlers(typeof(Program).Assembly)
     .AddApplicationCommands()
     .AddComponentInteractions<ButtonInteraction, ButtonInteractionContext>();
 

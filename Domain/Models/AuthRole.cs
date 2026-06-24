@@ -7,4 +7,5 @@ public class AuthRole
     public Faction? Faction { get; set; }
     public ulong RoleId { get; set; }
     public bool IsDefault { get; set; }
+    public bool IsFaction { get; set; }
 }
