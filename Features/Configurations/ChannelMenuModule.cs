@@ -10,7 +10,7 @@ using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Configurations;
 
-public class ChannelMenuModule(TornbotContext context, Logger<ChannelMenuModule> logger) : ComponentInteractionModule<ChannelMenuInteractionContext>
+public class ChannelMenuModule(TornbotContext context, ILogger<ChannelMenuModule> logger) : ComponentInteractionModule<ChannelMenuInteractionContext>
 {
     [ComponentInteraction("auto_verification_channel")]
     public async Task SetAutoVerificationChannel()
