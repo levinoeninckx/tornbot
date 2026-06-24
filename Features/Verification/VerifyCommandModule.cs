@@ -43,9 +43,9 @@ public class VerifyCommandModule(TornApiClient client, VerificationService verif
             };
         }
         
-        var isVerified = await verificationService.VerifyGuildUserAsync(guildUser);
+        var verifiedUser = await verificationService.VerifyGuildUserAsync(guildUser);
 
-        if (!isVerified)
+        if (verifiedUser == null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to verify user.");
         }

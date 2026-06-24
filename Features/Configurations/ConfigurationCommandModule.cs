@@ -99,7 +99,11 @@ public class ConfigurationCommandModule(ChannelService channelService, TornApiCl
                 new RoleMenuProperties("default_verification_roles")
                     .WithPlaceholder("Select default assigned roles")
                     .WithMaxValues(25)
-                    .WithDefaultValues(config!.DefaultRoleIds)
+                    .WithDefaultValues(config!.DefaultRoleIds),
+                new ChannelMenuProperties("auto_verification_channel")
+                    .WithPlaceholder("Select channel for verification messages for new users")
+                    .WithMaxValues(1)
+                    .WithDefaultValues([config.AutoVerificationChannelId])
             ],
             Flags = MessageFlags.Ephemeral
         };

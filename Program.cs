@@ -41,12 +41,13 @@ builder.Services
         options.Intents = GatewayIntents.GuildUsers | GatewayIntents.AllNonPrivileged;
     })
     .AddGatewayHandlers(typeof(Program).Assembly)
-    .AddApplicationCommands()
-    .AddComponentInteractions<ButtonInteraction, ButtonInteractionContext>();
+    .AddApplicationCommands();
 
 // Component interactions
 builder.Services
-    .AddComponentInteractions<RoleMenuInteraction, RoleMenuInteractionContext>();
+    .AddComponentInteractions<RoleMenuInteraction, RoleMenuInteractionContext>()
+    .AddComponentInteractions<ChannelMenuInteraction, ChannelMenuInteractionContext>()
+    .AddComponentInteractions<ButtonInteraction, ButtonInteractionContext>();
 
 // Httpclient
 builder.Services.AddHttpClient<TornApiClient>(client =>
