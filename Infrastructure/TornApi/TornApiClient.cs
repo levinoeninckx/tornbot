@@ -148,6 +148,6 @@ public class TornApiClient
     {
         var response = await GetAsync<FactionBasicResponse>($"faction/{factionId}/basic", ct:ct);
         
-        return response.Faction;
+        return response.Basic;
     }
 }
