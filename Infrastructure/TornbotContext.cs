@@ -5,7 +5,9 @@ namespace TornBot.Bot.Infrastructure;
 
 public class TornbotContext(DbContextOptions<TornbotContext> options) : DbContext(options)
 {
+    public DbSet<Faction> Factions { get; set; }
     public DbSet<ApiKey> ApiKeys { get; set; }
+    public DbSet<ModuleConfig> ModuleConfigs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

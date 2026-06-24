@@ -35,7 +35,7 @@ public class TornApiClient
             throw new Exception("No API key set");
         }
 
-        using var response = await _http.GetAsync($"{endpoint}?key={apiKey.Key}", ct);
+        using var response = await _http.GetAsync($"{endpoint}?key={apiKey}", ct);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -55,7 +55,7 @@ public class TornApiClient
 
     public async Task<ChainState> GetChainStateAsync(CancellationToken ct = default)
     {
-        return await GetAsync<ChainState>("faction/chain", ct);
+        return await GetAsync<ChainState>("faction/chain", ct:ct);
     }
 
     public async Task<Profile> GetUserProfileByDiscordId(ulong discordId, CancellationToken ct = default)
@@ -68,13 +68,22 @@ public class TornApiClient
         return userBasicResponse.Profile;
     }
 
+    public async Task<Faction?> GetUserFactionAsync(int userId, CancellationToken ct = default)
+    {
+        var userFacionResponse = await GetAsync<UserFactionResponse>($"user/{userId}/faction", ct);
+
+        if (userFacionResponse.Faction == null) return null;
+        
+        return userFacionResponse.Faction;
+    }
+
     public Task<FactionRankedWarsResponse> GetRankedWarsAsync(
         int factionId,
         CancellationToken ct = default)
     {
         return GetAsync<FactionRankedWarsResponse>(
             $"faction/{factionId}/rankedwars",
-            ct);
+            ct:ct);
     }
 
     public Task<RankedWarResponse> GetRankedWarAsync(
@@ -83,7 +92,7 @@ public class TornApiClient
     {
         return GetAsync<RankedWarResponse>(
             $"torn/rankedwars/{warId}",
-            ct);
+            ct:ct);
     }
 
     public Task<RankedWarReportResponse> GetRankedWarReportAsync(
@@ -92,12 +101,12 @@ public class TornApiClient
     {
         return GetAsync<RankedWarReportResponse>(
             $"torn/rankedwars/{warId}/report",
-            ct);
+            ct:ct);
     }
 
     public Task<FactionMembersResponse> GetFactionMembersAsync(int factionId, CancellationToken ct = default)
     {
-        return GetAsync<FactionMembersResponse>($"faction/{factionId}/members", ct);
+        return GetAsync<FactionMembersResponse>($"faction/{factionId}/members", ct:ct);
     }
 
     public Task<UserResponse> GetUserAsync(
@@ -106,7 +115,7 @@ public class TornApiClient
     {
         return GetAsync<UserResponse>(
             $"user/{userId}",
-            ct);
+            ct:ct);
     }
 
     public async Task<List<UserResponse>> GetUsersAsync(
@@ -133,5 +142,12 @@ public class TornApiClient
         var keyInfoResponse = await response.Content.ReadFromJsonAsync<KeyInfoResponse>(cancellationToken: ct);
 
         return keyInfoResponse?.Info;
+    }
+    
+    public async Task<Factionbasic> GetFactionBasicAsync(int factionId, CancellationToken ct = default)
+    {
+        var response = await GetAsync<FactionBasicResponse>($"faction/{factionId}/basic", ct:ct);
+        
+        return response.Faction;
     }
 }

@@ -1,13 +1,17 @@
+using Microsoft.EntityFrameworkCore;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
+using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
 
-namespace TornBot.Bot.Features;
+namespace TornBot.Bot.Features.Verification;
 
-public class VerifyCommandModule(TornApiClient client) : ApplicationCommandModule<ApplicationCommandContext>
+public class VerifyCommandModule(TornApiClient client, VerificationService verificationService) : ApplicationCommandModule<ApplicationCommandContext>
 {
+    [RequireVerificationChannels]
+    [RequireVerificationRoles]
     [SlashCommand("verify", "Verify your torn account with discord")]
     public async Task<InteractionMessageProperties> VerifyUser([SlashCommandParameter] User? user = null)
     {
@@ -40,9 +44,13 @@ public class VerifyCommandModule(TornApiClient client) : ApplicationCommandModul
                 Flags = MessageFlags.Ephemeral
             };
         }
+        
+        var verifiedUser = await verificationService.VerifyGuildUserAsync(guildUser);
 
-        await Context.Guild.ModifyUserAsync(guildUser.Id,
-            properties => properties.Nickname = tornNickname);
+        if (verifiedUser == null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to verify user.");
+        }
         
         return new()
         {
@@ -54,7 +62,7 @@ public class VerifyCommandModule(TornApiClient client) : ApplicationCommandModul
                     Description =
                         $"{guildUser.Username} has been verified as [{tornNickname}](https://tcy.sh/p/{tornUserProfile.Id})"
                 }
-            ]
+            ],
         };
     }
 }

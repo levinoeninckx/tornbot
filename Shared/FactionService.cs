@@ -1,12 +1,35 @@
+using Microsoft.EntityFrameworkCore;
+using TornBot.Bot.Domain.Models;
+using TornBot.Bot.Infrastructure;
+
 namespace TornBot.Bot.Shared;
 
-public class FactionService
+public class FactionService(TornbotContext context)
 {
-    private int _factionId;
-    
-    public int FactionId() => _factionId;
-    public void SetFactionId(int factionId)
+    public async Task<bool> AddFactionAsync(int factionId, ulong guildId)
     {
-        _factionId = factionId;
+        var faction = new Faction
+        {
+            FactionId = factionId,
+            GuildId = guildId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        try
+        {
+            await context.Factions.AddAsync(faction);
+            await context.SaveChangesAsync();
+
+            return true;
+        }
+        catch (Exception e)
+        {
+            return false;
+        }
+    }
+
+    public async Task<Faction?> GetFactionByGuildIdAsync(ulong guildId)
+    {
+        return await context.Factions.SingleOrDefaultAsync(f => f.GuildId == guildId);
     }
 }
