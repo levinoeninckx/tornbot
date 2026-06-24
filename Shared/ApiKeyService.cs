@@ -45,10 +45,11 @@ public class ApiKeyService(TornbotContext context, ILogger<ApiKeyService> logger
         return await context.ApiKeys.FirstOrDefaultAsync(k => k.Key == key);
     }
 
-    public async Task<ApiKey?> GetPublicApiKeyAsync()
+    public async Task<string?> GetPublicApiKeyAsync()
     {
         var key = await context.ApiKeys.FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.Public);
-        return key;
+        
+        return key?.Key;
     }
 
     public async Task<IReadOnlyList<ApiKey>> GetAllApiKeysAsync()

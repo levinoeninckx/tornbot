@@ -1,10 +1,11 @@
 using System.Collections.Immutable;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using NetCord.Rest;
 using NetCord.Services.ComponentInteractions;
+using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Infrastructure;
-using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Configurations;
 
@@ -13,51 +14,34 @@ public class RoleMenuModule(TornbotContext context) : ComponentInteractionModule
     [ComponentInteraction("default_verification_roles")]
     public async Task SetDefaultVerificationRoles()
     {
-        var existingDefaultRoles = await context.AuthRoles.Where(r => r.IsDefault).ToListAsync();
-        
         if (Context.Guild == null)
         {
             return;
         }
         
-        var faction = await context.Factions.SingleOrDefaultAsync(f => f.GuildId == Context.Guild.Id);
+        var faction = await context.Factions
+            .Include(f => f.ModuleConfigs)
+            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild.Id);
 
         if (faction == null)
+        {
+            // TODO: send message to register faction
+            return;
+        }
+
+        var moduleConfig = faction.ModuleConfigs.SingleOrDefault(c => c.Module == Module.Verification);
+        var config = moduleConfig?.Config.Deserialize<VerificationConfig>();
+
+        if (config == null || moduleConfig == null)
         {
             return;
         }
         
-        var authRolesToAdd = Context.SelectedValues
-            .Where(r => existingDefaultRoles.All(e => e.RoleId != r.Id))
-            .Select(r => new AuthRole
-            {
-                FactionId = faction!.Id,
-                RoleId = r.Id,
-                IsDefault = true
-            })
-            .ToImmutableList();
+        config.DefaultRoleIds = [.. Context.SelectedValues.Select(r => r.Id)];
+        moduleConfig.Config = JsonDocument.Parse(JsonSerializer.Serialize(config));
+        
+        await context.SaveChangesAsync();
 
-        context.AuthRoles.AddRange(authRolesToAdd);
-
-        foreach (var defaultRole in existingDefaultRoles)
-        {
-            if(Context.SelectedValues.All(v => v.Id != defaultRole.RoleId))
-            {
-                defaultRole.IsDefault = false;
-            }
-        }
-        
-        context.AuthRoles.UpdateRange(existingDefaultRoles);
-        
-        try
-        {
-            await context.SaveChangesAsync();
-        }
-        catch (Exception e)
-        {
-            await Context.Interaction.SendFollowupMessageAsync("Something went wrong");
-        }
-        
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
     }
 }

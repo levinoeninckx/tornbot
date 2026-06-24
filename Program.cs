@@ -10,7 +10,7 @@ using NetCord.Hosting.Services;
 using NetCord.Hosting.Services.ApplicationCommands;
 using NetCord.Hosting.Services.ComponentInteractions;
 using NetCord.Services.ComponentInteractions;
-using TornBot.Bot.Features.Configurations;
+using TornBot.Bot.Features.Verification;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
@@ -38,7 +38,7 @@ builder.Services
     .AddDiscordGateway(options =>
     {
         options.Token = discordBotToken;
-        options.Intents = GatewayIntents.GuildUsers;
+        options.Intents = GatewayIntents.GuildUsers | GatewayIntents.AllNonPrivileged;
     })
     .AddGatewayHandlers(typeof(Program).Assembly)
     .AddApplicationCommands()
@@ -56,6 +56,7 @@ builder.Services.AddHttpClient<TornApiClient>(client =>
 
 // Set DI services
 builder.Services.AddTransient<ApiKeyService>();
+builder.Services.AddTransient<VerificationService>();
 builder.Services.AddSingleton<ChannelService>();
 builder.Services.AddSingleton<FactionService>();
 

@@ -1,6 +1,9 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using NetCord;
 using NetCord.Rest;
+using TornBot.Bot.Domain.Enums;
+using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 
@@ -10,44 +13,44 @@ public class VerificationService(TornbotContext context, TornApiClient client, R
 {
     public async Task<bool> VerifyGuildUserAsync(GuildUser guildUser)
     {
-        var tornUserProfile = await client.GetUserProfileByDiscordId(guildUser.Id);
-        
-        var userFaction = await client.GetUserFactionAsync(tornUserProfile.Id);
-        var guildFaction = await context.Factions.SingleOrDefaultAsync(f => f.GuildId == guildUser.GuildId);
-        
-        var defaultRoles = await context.AuthRoles
-            .Include(r => r.Faction)
-            .Where(r => r.IsDefault && r.Faction!.GuildId == guildUser.GuildId)
-            .ToListAsync();
+        var userId = guildUser.Id;
+        var guildId = guildUser.GuildId;
 
-        if (guildFaction == null)
+        var profile = await client.GetUserProfileByDiscordId(userId);
+        var nickname = $"{profile.Name} [{profile.Id}]";
+
+        var faction = await context.Factions
+            .Include(f => f.ModuleConfigs)
+            .SingleOrDefaultAsync(f => f.GuildId == guildId);
+
+        if (faction == null)
         {
             // TODO: log
             return false;
         }
 
-        if (userFaction != null)
+        var verificationModule = faction.ModuleConfigs.SingleOrDefault(c => c.Module == Module.Verification);
+        var config = verificationModule?.Config.Deserialize<VerificationConfig>();
+
+        if (config == null)
         {
-            if (userFaction.Id == guildFaction.FactionId)
-            {
-                var factionRoles = await context.AuthRoles
-                    .Include(r => r.Faction)
-                    .Where(r => r.IsFaction && r.Faction!.GuildId == guildUser.GuildId)
-                    .ToListAsync();
-            
-                defaultRoles.AddRange(factionRoles);
-            }
+            return false;
         }
+
+        var userFaction = await client.GetUserFactionAsync(profile.Id);
         
-        var tornNickname = $"{tornUserProfile.Name} [{tornUserProfile.Id}]";
-        await restClient.ModifyGuildUserAsync(guildUser.GuildId, guildUser.Id,
-            properties =>
-            {
-                properties
-                    .WithNickname(tornNickname)
-                    .AddRoleIds(defaultRoles.Select(r => r.RoleId).ToList());
-            });
-        
+        List<ulong> roleIds = [.. config.DefaultRoleIds];
+        if (userFaction?.Id == faction.FactionId)
+        {
+            roleIds.AddRange(config.FactionRoleIds);
+        }
+
+        await restClient.ModifyGuildUserAsync(guildId, userId, properties => 
+        {
+            properties.WithNickname(nickname);
+            properties.WithRoleIds(roleIds);
+        });
+
         return true;
     }
 }
