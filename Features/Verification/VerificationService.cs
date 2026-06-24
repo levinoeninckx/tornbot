@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
 using TornBot.Bot.Domain.Enums;
@@ -9,7 +10,7 @@ using TornBot.Bot.Infrastructure.TornApi;
 
 namespace TornBot.Bot.Features.Verification;
 
-public class VerificationService(TornbotContext context, TornApiClient client, RestClient restClient)
+public class VerificationService(TornbotContext context, TornApiClient client, RestClient restClient, ILogger<VerificationService> logger)
 {
     public async Task<GuildUser?> VerifyGuildUserAsync(GuildUser guildUser)
     {
@@ -25,7 +26,7 @@ public class VerificationService(TornbotContext context, TornApiClient client, R
 
         if (faction == null)
         {
-            // TODO: log
+            logger.LogWarning($"faction not found for guild {guildId}");
             return null;
         }
 

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using discordBotTest.Shared;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
@@ -13,36 +14,15 @@ using TornBot.Bot.Shared;
 namespace TornBot.Bot.Features.Configurations;
 
 [SlashCommand("configure", "Configure command", DefaultGuildPermissions = Permissions.Administrator)]
-public class ConfigurationCommandModule(ChannelService channelService, TornApiClient client, TornbotContext context)
+public class ConfigurationCommandModule(ChannelService channelService, TornApiClient client, TornbotContext context, Logger<ConfigurationCommandModule> logger)
     : ApplicationCommandModule<ApplicationCommandContext>
 {
-    [SubSlashCommand("chain", "configure this channel for chain monitoring")]
-    public string SetChainMonitoringChannel()
-    {
-        if(Context.Channel == null) throw new InvalidOperationException();
-        var channelId = Context.Channel.Id;
-
-        channelService.AddChannelId(TrackingChannel.Chain, channelId);
-
-        return "This channel is configured for chain monitoring";
-    }
-
-    [SubSlashCommand("war", "configure this channel for war monitoring")]
-    public string SetWarMonitoringChannel()
-    {
-        if(Context.Channel == null) throw new InvalidOperationException();
-        var channelId = Context.Channel.Id;
-
-        channelService.AddChannelId(TrackingChannel.War, channelId);
-
-        return "This channel is configured for war monitoring";
-    }
-    
     [SubSlashCommand("bot", "configure this bot for your server")]
     public async Task<InteractionMessageProperties> ConfigureBot([SlashCommandParameter(Name = "key", Description = "Initial api key to register faction, can be public")] string apiKey)
     {
         if (Context.Guild == null)
         {
+            logger.LogWarning("Guild is null");
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
         }
         
@@ -72,7 +52,16 @@ public class ConfigurationCommandModule(ChannelService channelService, TornApiCl
         };
         
         context.Factions.Add(faction);
-        await context.SaveChangesAsync();
+
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogCritical(ex, "Failed to save faction");
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to save faction");
+        }
         
         var factionBasic = await client.GetFactionBasicAsync(faction.FactionId);
         return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", $"Faction {factionBasic.Name} registered");

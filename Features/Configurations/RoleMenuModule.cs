@@ -1,15 +1,17 @@
 using System.Collections.Immutable;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NetCord.Rest;
 using NetCord.Services.ComponentInteractions;
 using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Infrastructure;
+using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Configurations;
 
-public class RoleMenuModule(TornbotContext context) : ComponentInteractionModule<RoleMenuInteractionContext>
+public class RoleMenuModule(TornbotContext context, Logger<RoleMenuModule> logger) : ComponentInteractionModule<RoleMenuInteractionContext>
 {
     [ComponentInteraction("default_verification_roles")]
     public async Task SetDefaultVerificationRoles()
@@ -39,8 +41,19 @@ public class RoleMenuModule(TornbotContext context) : ComponentInteractionModule
         
         config.DefaultRoleIds = [.. Context.SelectedValues.Select(r => r.Id)];
         moduleConfig.Config = JsonDocument.Parse(JsonSerializer.Serialize(config));
-        
-        await context.SaveChangesAsync();
+
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogCritical(ex, "Failed to save default verification roles");
+            var msg = MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to save default verification roles");
+            await Context.Interaction.SendFollowupMessageAsync(msg);
+            await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
+            return;
+        }
 
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
     }

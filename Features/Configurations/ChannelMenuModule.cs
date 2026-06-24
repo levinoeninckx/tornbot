@@ -1,14 +1,16 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NetCord.Rest;
 using NetCord.Services.ComponentInteractions;
 using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Infrastructure;
+using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Configurations;
 
-public class ChannelMenuModule(TornbotContext context) : ComponentInteractionModule<ChannelMenuInteractionContext>
+public class ChannelMenuModule(TornbotContext context, Logger<ChannelMenuModule> logger) : ComponentInteractionModule<ChannelMenuInteractionContext>
 {
     [ComponentInteraction("auto_verification_channel")]
     public async Task SetAutoVerificationChannel()
@@ -24,7 +26,9 @@ public class ChannelMenuModule(TornbotContext context) : ComponentInteractionMod
 
         if (faction == null)
         {
-            // TODO: send message to register faction
+            var msg = MessageFactory.CreateErrorMessage<InteractionMessageProperties>("register faction first with /configure faction");
+            await Context.Interaction.SendFollowupMessageAsync(msg);
+            await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
             return;
         }
         
@@ -33,13 +37,24 @@ public class ChannelMenuModule(TornbotContext context) : ComponentInteractionMod
 
         if (config == null || moduleConfig == null)
         {
+            var msg = MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
+            await Context.Interaction.SendFollowupMessageAsync(msg);
+            await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
             return;
         }
         
         config.AutoVerificationChannelId = Context.SelectedValues.Single().Id;
         moduleConfig.Config = JsonDocument.Parse(JsonSerializer.Serialize(config));
-        
-        await context.SaveChangesAsync();
+
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogCritical(ex, "Failed to save module config");
+            await Context.Interaction.SendFollowupMessageAsync(MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to save module config"));
+        }
 
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
     }
