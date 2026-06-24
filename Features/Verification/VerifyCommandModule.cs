@@ -10,6 +10,8 @@ namespace TornBot.Bot.Features.Verification;
 
 public class VerifyCommandModule(TornApiClient client, VerificationService verificationService) : ApplicationCommandModule<ApplicationCommandContext>
 {
+    [RequireVerificationChannels]
+    [RequireVerificationRoles]
     [SlashCommand("verify", "Verify your torn account with discord")]
     public async Task<InteractionMessageProperties> VerifyUser([SlashCommandParameter] User? user = null)
     {

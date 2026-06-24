@@ -13,7 +13,7 @@ using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Configurations;
 
-[SlashCommand("configure", "Configure command", DefaultGuildPermissions = Permissions.Administrator)]
+[SlashCommand("configure", "Configure command", DefaultGuildPermissions = Permissions.Administrator, Contexts = [InteractionContextType.Guild])]
 public class ConfigurationCommandModule(ChannelService channelService, TornApiClient client, TornbotContext context, ILogger<ConfigurationCommandModule> logger)
     : ApplicationCommandModule<ApplicationCommandContext>
 {
