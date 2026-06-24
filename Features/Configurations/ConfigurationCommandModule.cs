@@ -84,26 +84,29 @@ public class ConfigurationCommandModule(ChannelService channelService, TornApiCl
         {
             Components =
             [
-                new TextDisplayProperties("Default roles"),
-                new RoleMenuProperties("default_verification_roles")
-                    .WithPlaceholder("Select default assigned roles")
-                    .WithMaxValues(25)
-                    .WithDefaultValues(config!.DefaultRoleIds),
-                new TextDisplayProperties("Faction roles"),
-                new RoleMenuProperties("verification_faction_roles")
-                    .WithPlaceholder("Select roles assigned to faction members")
-                    .WithMaxValues(25)
-                    .WithDefaultValues(config.FactionRoleIds),
-                new TextDisplayProperties("Allowed roles"),
-                new RoleMenuProperties("verification_allowed_roles")
-                    .WithPlaceholder("Select roles allowed to use verify commands")
-                    .WithMaxValues(25)
-                    .WithDefaultValues(config.AllowedRoleIds),
-                new TextDisplayProperties("Auto verification channel"),
-                new ChannelMenuProperties("auto_verification_channel")
-                    .WithPlaceholder("Select channel for verification messages for new users")
-                    .WithMaxValues(1)
-                    .WithDefaultValues([config.AutoVerificationChannelId])
+                new ComponentContainerProperties()
+                {
+                    new TextDisplayProperties("Default roles"),
+                    new RoleMenuProperties("default_verification_roles")
+                        .WithPlaceholder("Select default assigned roles")
+                        .WithMaxValues(25)
+                        .WithDefaultValues(config!.DefaultRoleIds),
+                    new TextDisplayProperties("Faction roles"),
+                    new RoleMenuProperties("verification_faction_roles")
+                        .WithPlaceholder("Select roles assigned to faction members")
+                        .WithMaxValues(25)
+                        .WithDefaultValues(config.FactionRoleIds),
+                    new TextDisplayProperties("Allowed roles"),
+                    new RoleMenuProperties("verification_allowed_roles")
+                        .WithPlaceholder("Select roles allowed to use verify commands")
+                        .WithMaxValues(25)
+                        .WithDefaultValues(config.AllowedRoleIds),
+                    new TextDisplayProperties("Auto verification channel"),
+                    new ChannelMenuProperties("auto_verification_channel")
+                        .WithPlaceholder("Select channel for verification messages for new users")
+                        .WithMaxValues(1)
+                        .WithDefaultValues([config.AutoVerificationChannelId])
+                }
             ],
             Flags = MessageFlags.Ephemeral | MessageFlags.IsComponentsV2
         };
