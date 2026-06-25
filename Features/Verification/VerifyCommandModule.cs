@@ -65,4 +65,17 @@ public class VerifyCommandModule(TornApiClient client, VerificationService verif
             ],
         };
     }
+
+    [RequireVerificationChannels]
+    [RequireVerificationRoles]
+    [SlashCommand("verifyall", "verify all users in the server")]
+    public async Task<InteractionMessageProperties> VerifyAllUsers()
+    {
+        var users = Context.Guild!.Users.Where(u => !u.Value.IsBot).Select(u => u.Value).ToList();
+        var verificationTasks = users.Select(verificationService.VerifyGuildUserAsync).ToList();
+
+        await Task.WhenAll(verificationTasks);
+        
+        return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Verification complete", "All users have been verified");
+    }
 }
