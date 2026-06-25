@@ -31,7 +31,8 @@ public static class MessageFactory
                     Title = "Oops!",
                     Description = error ?? "Something went wrong. Please try again later."
                 }
-            ]
+            ],
+            Flags = MessageFlags.Ephemeral
         };
     }
 

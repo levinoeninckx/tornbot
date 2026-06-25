@@ -8,38 +8,6 @@ namespace TornBot.Bot.Shared;
 
 public class ApiKeyService(TornbotContext context, ILogger<ApiKeyService> logger)
 {
-    public async Task<bool> AddKeyAsync(ApiKey key)
-    {
-        try
-        {
-            context.ApiKeys.Add(key);
-            await context.SaveChangesAsync();
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to add API key");
-            return false;
-        }
-
-        return true;
-    }
-    
-    public async Task<bool> RemoveKeyAsync(ApiKey key)
-    {
-        try
-        {
-            context.ApiKeys.Remove(key);
-            await context.SaveChangesAsync();
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to remove API key");
-            return false;
-        }
-        
-        return true;
-    }
-    
     public async Task<ApiKey?> GetApiKeyAsync(string key)
     {
         return await context.ApiKeys.FirstOrDefaultAsync(k => k.Key == key);

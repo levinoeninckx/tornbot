@@ -6,6 +6,4 @@ public class Access
     public string Type { get; set; }
     public bool Faction { get; set; }
     public bool Company { get; set; }
-    
-    // TODO: add log property for custom permissions
 }

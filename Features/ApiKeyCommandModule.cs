@@ -1,6 +1,7 @@
 using System.Text;
 using discordBotTest.Shared;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
@@ -13,7 +14,7 @@ using TornBot.Bot.Shared;
 namespace TornBot.Bot.Features;
 
 [SlashCommand("key", "key commands")]
-public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornApiClient client) : ApplicationCommandModule<ApplicationCommandContext>
+public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornbotContext context, TornApiClient client, ILogger<ApiKeyCommandModule> logger) : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("add", "add an api key")]
     public async Task<InteractionMessageProperties> SetApiKey([SlashCommandParameter(Description = "Your api key")]string key)
@@ -38,8 +39,24 @@ public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornApiClient clie
         }
         
         var apiKey = new ApiKey(keyInfo.User.Id, key, (AccessLevel)keyInfo.Access.Level);
+
+        var faction = await context.Factions.SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+        if (faction == null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Please register this faction with /configure bot");
+        }
         
-        await apiKeyService.AddKeyAsync(apiKey);
+        faction.ApiKeys.Add(apiKey);
+
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogCritical(ex, $"Failed to save api key: {key}");
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Please register this faction with /configure bot");
+        }
         
         return new()
         {
@@ -59,19 +76,25 @@ public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornApiClient clie
             // TODO: change to warning message
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("API key not found");
         }
-        
-        var isDeleted = await apiKeyService.RemoveKeyAsync(apiKey);
 
-        if (!isDeleted)
+        var faction = await context.Factions
+            .Include(f => f.ApiKeys)
+            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+        
+        if (faction == null)
         {
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to remove API key");
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Please register this faction with /configure bot");
         }
 
-        // TODO: add createEphermal message
-        var message = MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Key removed",
+        if (faction.ApiKeys.Any(k => k.Key == key) || faction.ApiKeys.Count == 0)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("API key not found");
+        }
+            
+        faction.ApiKeys.Remove(apiKey);
+
+        var message = MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Key removed",
             $"api key: {apiKey.Key} removed");
-        
-        message.Flags = MessageFlags.Ephemeral;
 
         return message;
     }
