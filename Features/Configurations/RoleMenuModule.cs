@@ -117,7 +117,7 @@ public class RoleMenuModule(TornbotContext context, ILogger<RoleMenuModule> logg
 
         if (faction == null)
         {
-            // TODO: send message to register faction
+            await Context.Interaction.SendResponseAsync(InteractionCallback.Message(MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Please register this faction with /configure bot")));
             return;
         }
 
