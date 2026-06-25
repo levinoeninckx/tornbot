@@ -43,7 +43,7 @@ public class ChannelMenuModule(TornbotContext context, ILogger<ChannelMenuModule
             return;
         }
         
-        config.AutoVerificationChannelId = Context.SelectedValues.Single().Id;
+        config.AutoVerificationChannelId = Context.SelectedValues.SingleOrDefault()?.Id ?? 0;
         moduleConfig.Config = JsonDocument.Parse(JsonSerializer.Serialize(config));
 
         try

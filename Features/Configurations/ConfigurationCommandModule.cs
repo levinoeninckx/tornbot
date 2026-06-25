@@ -89,26 +89,31 @@ public class ConfigurationCommandModule(ChannelService channelService, TornApiCl
                     new TextDisplayProperties("Default roles"),
                     new RoleMenuProperties("default_verification_roles")
                         .WithPlaceholder("Select default assigned roles")
+                        .WithMinValues(0)
                         .WithMaxValues(25)
                         .WithDefaultValues(config!.DefaultRoleIds),
                     new TextDisplayProperties("Faction roles"),
                     new RoleMenuProperties("verification_faction_roles")
                         .WithPlaceholder("Select roles assigned to faction members")
+                        .WithMinValues(0)
                         .WithMaxValues(25)
                         .WithDefaultValues(config.FactionRoleIds),
                     new TextDisplayProperties("Allowed roles"),
                     new RoleMenuProperties("verification_allowed_roles")
                         .WithPlaceholder("Select roles allowed to use verify commands")
+                        .WithMinValues(0)
                         .WithMaxValues(25)
                         .WithDefaultValues(config.AllowedRoleIds),
                     new TextDisplayProperties("Restricted channels"),
                     new ChannelMenuProperties("restricted_channels")
                         .WithPlaceholder("Confine commands to these channels")
+                        .WithMinValues(0)
                         .WithMaxValues(25)
                         .WithDefaultValues(config.RestrictedChannelIds),
                     new TextDisplayProperties("Auto verification channel"),
                     new ChannelMenuProperties("auto_verification_channel")
                         .WithPlaceholder("Select channel for verification messages for new users")
+                        .WithMinValues(0)
                         .WithMaxValues(1)
                         .WithDefaultValues([config.AutoVerificationChannelId])
                 }
