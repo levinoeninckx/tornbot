@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -9,9 +8,9 @@ using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Shared;
 
-namespace TornBot.Bot.Features.Configurations;
+namespace TornBot.Bot.Features.Configurations.Verification;
 
-public class RoleMenuModule(TornbotContext context, ILogger<RoleMenuModule> logger) : ComponentInteractionModule<RoleMenuInteractionContext>
+public class VerificationRoleMenuModule(TornbotContext context, ILogger<VerificationRoleMenuModule> logger) : ComponentInteractionModule<RoleMenuInteractionContext>
 {
     [ComponentInteraction("default_verification_roles")]
     public Task SetDefaultVerificationRoles() => UpdateVerificationConfigAsync(config => config.DefaultRoleIds = [.. Context.SelectedValues.Select(r => r.Id)]);

@@ -47,7 +47,8 @@ builder.Services
 builder.Services
     .AddComponentInteractions<RoleMenuInteraction, RoleMenuInteractionContext>()
     .AddComponentInteractions<ChannelMenuInteraction, ChannelMenuInteractionContext>()
-    .AddComponentInteractions<ButtonInteraction, ButtonInteractionContext>();
+    .AddComponentInteractions<ButtonInteraction, ButtonInteractionContext>()
+    .AddComponentInteractions<StringMenuInteraction, StringMenuInteractionContext>();
 
 // Httpclient
 builder.Services.AddHttpClient<TornApiClient>(client =>

@@ -7,6 +7,7 @@ using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
 using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
+using TornBot.Bot.Features.Banking;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
@@ -14,7 +15,7 @@ using TornBot.Bot.Shared;
 namespace TornBot.Bot.Features.Configurations;
 
 [SlashCommand("configure", "Configure command", DefaultGuildPermissions = Permissions.Administrator, Contexts = [InteractionContextType.Guild])]
-public class ConfigurationCommandModule(ChannelService channelService, TornApiClient client, TornbotContext context, ILogger<ConfigurationCommandModule> logger)
+public class ConfigurationCommandModule(ModuleConfigRepository moduleConfigRepository, TornApiClient client, TornbotContext context, ILogger<ConfigurationCommandModule> logger)
     : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("bot", "configure this bot for your server")]
@@ -67,7 +68,7 @@ public class ConfigurationCommandModule(ChannelService channelService, TornApiCl
         return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", $"Faction {factionBasic.Name} registered");
     }
 
-    [SubSlashCommand("verification", "configure verification")]
+    [SubSlashCommand("verification", "configure the verification module")]
     public async Task<InteractionMessageProperties> ConfigureVerification()
     {
         var faction = await context.Factions
@@ -127,4 +128,53 @@ public class ConfigurationCommandModule(ChannelService channelService, TornApiCl
             Flags = MessageFlags.Ephemeral | MessageFlags.IsComponentsV2
         };
     }
+
+    [SubSlashCommand("banking", "configure the banking module")]
+    public async Task<InteractionMessageProperties> ConfigureBanking()
+    {
+        var bankingConfig = await moduleConfigRepository.GetBankingModuleConfigByGuildId(Context.Guild!.Id);
+
+        if (bankingConfig == null)
+        {
+            return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Oops","Could not get banking module config");
+        }
+
+        return new()
+        {
+            Components =
+            [
+                new ComponentContainerProperties()
+                {
+                    new TextDisplayProperties("Enable/disable banking"),
+                    new StringMenuProperties("banking_enabled")
+                        .WithOptions([
+                            new StringMenuSelectOptionProperties("Enabled", nameof(ModuleState.Enabled)) { Default = bankingConfig.State == ModuleState.Enabled},
+                            new StringMenuSelectOptionProperties("Disabled", nameof(ModuleState.Disabled)) { Default = bankingConfig.State == ModuleState.Disabled}
+                        ])
+                        .WithMinValues(1)
+                        .WithMaxValues(1),
+                    new TextDisplayProperties("Banker role"),
+                    new RoleMenuProperties("banker_roles")
+                        .WithPlaceholder("Select role for bankers")
+                        .WithMinValues(0)
+                        .WithMaxValues(1)
+                        .WithDefaultValues(bankingConfig.BankerRoleId.HasValue ? [bankingConfig.BankerRoleId!.Value] : []),
+                    new TextDisplayProperties("Restricted channels"),
+                    new ChannelMenuProperties("banking_restricted_channels")
+                        .WithPlaceholder("Select channel for banking messages")
+                        .WithMinValues(0)
+                        .WithMaxValues(1)
+                        .WithDefaultValues(bankingConfig.RestrictedChannelIds),
+                    new TextDisplayProperties("Allowed roles"),
+                    new RoleMenuProperties("banking_allowed_roles")
+                        .WithPlaceholder("Select role for banking")
+                        .WithMinValues(0)
+                        .WithMaxValues(25)
+                        .WithDefaultValues(bankingConfig.AllowedRoleIds)
+                }
+            ],
+            Flags = MessageFlags.Ephemeral | MessageFlags.IsComponentsV2
+        };
+    }
+    
 }

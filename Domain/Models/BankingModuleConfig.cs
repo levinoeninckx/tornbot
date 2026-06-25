@@ -1,10 +1,12 @@
-namespace TornBot.Bot.Features.Banking;
+using TornBot.Bot.Domain.Enums;
+
+namespace TornBot.Bot.Domain.Models;
 
 public class BankingModuleConfig
 {
     public HashSet<ulong> AllowedRoleIds { get; set; } = [];
     public HashSet<ulong> RestrictedChannelIds { get; set; } = [];
     public ulong? BankerRoleId { get; set; }
-    public bool AllowBanking { get; set; }
-    public bool AllowDm { get; set; } = false;
+    public ModuleState State { get; set; }
+    public bool AllowDm { get; set; }
 }

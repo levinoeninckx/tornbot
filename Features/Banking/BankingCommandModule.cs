@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
+using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
@@ -31,11 +32,6 @@ public class BankingCommandModule(TornApiClient client, ILogger<BankingCommandMo
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Something went wrong while processing your request. Please try again later.");
         }
-
-        if (bankingModuleConfig.AllowBanking == false)
-        {
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Banking is currently disabled");
-        }
             
         var user = Context.User as GuildUser;
         
@@ -50,10 +46,10 @@ public class BankingCommandModule(TornApiClient client, ILogger<BankingCommandMo
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Something went wrong while processing your request. Please try again later.");
         }
         
-        if(memberBalance.Money < amount)
-        {
-            return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Insufficient funds",$"You only have {memberBalance.Money.ToString("C0", CultureInfo.CreateSpecificCulture("en-US"))}");
-        }
+        // if(memberBalance.Money < amount)
+        // {
+        //     return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Insufficient funds",$"You only have {memberBalance.Money.ToString("C0", CultureInfo.CreateSpecificCulture("en-US"))}");
+        // }
 
         if (!bankingModuleConfig.BankerRoleId.HasValue)
         {

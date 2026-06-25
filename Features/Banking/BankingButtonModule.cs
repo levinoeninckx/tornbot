@@ -27,14 +27,42 @@ public class BankingButtonModule(TornApiClient client) : ComponentInteractionMod
             Description = $"[{requestee.Name}](https://tcy.sh/p/{requestee.Id})'s request was accepted by [{acceptorUser.Name}](https://tcy.sh/p/{acceptorUser.Id})",
         };
         
-        var confirmButton = new ButtonProperties("confirm_request", "Confirm", ButtonStyle.Success);
+        var confirmButton = new ButtonProperties($"confirm_request:{requesteeId}", "Confirm", ButtonStyle.Success);
         
+        await Context.Message.ModifyAsync(message => 
+        {
+            message.Embeds = [embed];
+            message.Components = [new ActionRowProperties { Components = [confirmButton, new ButtonProperties($"cancel_request:{requesteeId}", "Cancel", ButtonStyle.Danger)] }];
+        });
+    }
+
+    [ComponentInteraction("cancel_request")]
+    public async Task CancelBankingRequest(string requesteeId)
+    {
+        var guildUser = Context.User as GuildUser;
+
+        if (guildUser == null)
+        {
+            await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
+            return;
+        }
+        
+        var decliner = await client.GetUserProfileByDiscordId(guildUser.Id);
+        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId));
+
+        var embed = new EmbedProperties
+        {
+            Title = "Banking request cancelled",
+            Description = $"[{requestee.Name}](https://tcy.sh/p/{requestee.Id})'s request was cancelled by [{decliner.Name}](https://tcy.sh/p/{decliner.Id})",
+        };
+
         await Context.Message.ModifyAsync(message => 
         {
             message.Embeds = [embed];
             message.Components = [];
         });
     }
+    
     [ComponentInteraction("decline_request")]
     public async Task DeclineBankingRequest(string requesteeId)
     {
@@ -53,6 +81,33 @@ public class BankingButtonModule(TornApiClient client) : ComponentInteractionMod
         {
             Title = "Banking request declined",
             Description = $"[{requestee.Name}](https://tcy.sh/p/{requestee.Id})'s request was declined by [{decliner.Name}](https://tcy.sh/p/{decliner.Id})",
+        };
+
+        await Context.Message.ModifyAsync(message => 
+        {
+            message.Embeds = [embed];
+            message.Components = [];
+        });
+    }
+
+    [ComponentInteraction("confirm_request")]
+    public async Task ConfirmBankingRequest(string requesteeId)
+    {
+        var guildUser = Context.User as GuildUser;
+
+        if (guildUser == null)
+        {
+            await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
+            return;
+        }
+        
+        var decliner = await client.GetUserProfileByDiscordId(guildUser.Id);
+        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId));
+
+        var embed = new EmbedProperties
+        {
+            Title = "Banking request confirmed",
+            Description = $"[{requestee.Name}](https://tcy.sh/p/{requestee.Id})'s request was confirmed by [{decliner.Name}](https://tcy.sh/p/{decliner.Id})",
         };
 
         await Context.Message.ModifyAsync(message => 
