@@ -61,4 +61,10 @@ public class ApiKeyService(TornbotContext context, ILogger<ApiKeyService> logger
     {
         return await context.ApiKeys.Where(k => k.TornPlayerId == userId).ToListAsync();
     }
+
+    public async Task<ApiKey?> GetLimitedApiKeyAsync(bool hasFactionAccess = false)
+    {
+        return await context.ApiKeys
+            .FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.LimitedAccess && k.HasFactionAccess);
+    }
 }

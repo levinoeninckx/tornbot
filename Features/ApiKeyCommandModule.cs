@@ -36,10 +36,17 @@ public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornApiClient clie
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Invalid API key");
         }
+
+        var apiKey = new ApiKey(keyInfo.User.Id, key, (AccessLevel)keyInfo.Access.Level)
+        {
+            HasFactionAccess = keyInfo.Access.Faction,
+            HasCompanyAccess = keyInfo.Access.Company
+        };
         
-        var apiKey = new ApiKey(keyInfo.User.Id, key, (AccessLevel)keyInfo.Access.Level);
-        
-        await apiKeyService.AddKeyAsync(apiKey);
+        if(!(await apiKeyService.AddKeyAsync(apiKey)))
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Something went wrong while processing your request. Please try again later.");
+        }
         
         return new()
         {

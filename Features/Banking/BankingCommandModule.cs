@@ -1,55 +1,85 @@
-using FactionBot.Infrastructure.TornApi;
+using System.Globalization;
+using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
+using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Banking;
 
 [SlashCommand("banking", "Commands to interact with the banking system")]
-public class BankingCommandModule : ApplicationCommandModule<ApplicationCommandContext>
+public class BankingCommandModule(TornApiClient client, ILogger<BankingCommandModule> logger, ModuleConfigRepository moduleConfigRepository) : ApplicationCommandModule<ApplicationCommandContext>
 {
-    private TornApiClient _client;
-
-    public BankingCommandModule(TornApiClient client)
-    {
-        _client = client;
-    }
-    
-    // TODO: refactor, createMessgae -> static, return InteractionMessageProperties
     [SubSlashCommand("request", "put in a request for x amount")]
     public async Task<InteractionMessageProperties> BankRequest(int amount)
     {
+        if (amount <= 0)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Not a valid amount. Please enter a number greater than 0.");    
+        }
+        
         if (Context.Guild == null)
         {
-            // TODO: add logging
-            // TODO: add error message event
-            return "something went wrong while processing your request. Please try again later.";
+            logger.LogWarning("Guild is null");
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("something went wrong while processing your request. Please try again later.");
         }
         
-        var bankerRole = Context.Guild.Roles.Values.SingleOrDefault(r => r.Name == "Banker");
-
-        if (bankerRole == null)
+        var bankingModuleConfig = await moduleConfigRepository.GetBankingModuleConfigByGuildId(Context.Guild.Id);
+        if (bankingModuleConfig == null)
         {
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Please create the 'Banker' role in the server");
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Something went wrong while processing your request. Please try again later.");
         }
-        
+
+        if (bankingModuleConfig.AllowBanking == false)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Banking is currently disabled");
+        }
+            
         var user = Context.User as GuildUser;
         
         if(user == null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
         }
+
+        var memberBalance = await client.GetMemberFactionBalanceByIdAsync(user.Id);
+        if (memberBalance == null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Something went wrong while processing your request. Please try again later.");
+        }
         
-        var message = await CreateMessageAsync<InteractionMessageProperties>(bankerRole.Id, user.Id, amount);
+        if(memberBalance.Money < amount)
+        {
+            return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Insufficient funds",$"You only have {memberBalance.Money.ToString("C0", CultureInfo.CreateSpecificCulture("en-US"))}");
+        }
+
+        if (!bankingModuleConfig.BankerRoleId.HasValue)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Banker role not set");
+        }
+        
+        var message = await CreateMessageAsync<InteractionMessageProperties>(bankingModuleConfig.BankerRoleId.Value, user.Id, amount);
 
         return message;
     }
 
+    [SubSlashCommand("balance", "show your current faction bank balance")]
+    public async Task<InteractionMessageProperties> Showbalance()
+    {
+        var balance = await client.GetMemberFactionBalanceByIdAsync(Context.User.Id);
+        if (balance == null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Something went wrong while processing your request. Please try again later.");
+        }
+        
+        return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Balance", $"You currently have {balance.Money.ToString("C0", CultureInfo.CreateSpecificCulture("en-US"))} in your faction bank");
+    }
+
     private async Task<T> CreateMessageAsync<T>(ulong bankerRoleId, ulong requesteeId, int amount) where T : IMessageProperties, new()
     {
-        var requestee = await _client.GetUserProfileByDiscordId(requesteeId);
+        var requestee = await client.GetUserProfileByDiscordId(requesteeId);
         var embed = new EmbedProperties()
         {
             Title = "Banking request",

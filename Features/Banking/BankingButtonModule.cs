@@ -8,15 +8,8 @@ using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Banking;
 
-public class BankingButtonInteractionModule : ComponentInteractionModule<ButtonInteractionContext>
+public class BankingButtonModule(TornApiClient client) : ComponentInteractionModule<ButtonInteractionContext>
 {
-    private TornApiClient _client;
-
-    public BankingButtonInteractionModule(TornApiClient client)
-    {
-        _client = client;
-    }
-
     [ComponentInteraction("accept_request")]
     public async Task AcceptBankingRequest(string requesteeId, string requestedAmount)
     {
@@ -24,15 +17,18 @@ public class BankingButtonInteractionModule : ComponentInteractionModule<ButtonI
         var guildUser = Context.User as GuildUser;
         var amount = Convert.ToInt32(requestedAmount);
 
-        var requestee = await _client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId));
+        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId));
         await dmChannel.SendMessageAsync($"[{requestee.Name}](https://tcy.sh/p/{requestee.Id}) requested {amount.ToString("C0", CultureInfo.GetCultureInfo("en-US"))} from the faction bank");
 
-        var acceptorUser = await _client.GetUserProfileByDiscordId(guildUser!.Id);
+        var acceptorUser = await client.GetUserProfileByDiscordId(guildUser!.Id);
         var embed = new EmbedProperties()
         {
             Title = "Banking request accepted",
             Description = $"[{requestee.Name}](https://tcy.sh/p/{requestee.Id})'s request was accepted by [{acceptorUser.Name}](https://tcy.sh/p/{acceptorUser.Id})",
         };
+        
+        var confirmButton = new ButtonProperties("confirm_request", "Confirm", ButtonStyle.Success);
+        
         await Context.Message.ModifyAsync(message => 
         {
             message.Embeds = [embed];
@@ -50,8 +46,8 @@ public class BankingButtonInteractionModule : ComponentInteractionModule<ButtonI
             return;
         }
         
-        var decliner = await _client.GetUserProfileByDiscordId(guildUser.Id);
-        var requestee = await _client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId));
+        var decliner = await client.GetUserProfileByDiscordId(guildUser.Id);
+        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId));
 
         var embed = new EmbedProperties
         {

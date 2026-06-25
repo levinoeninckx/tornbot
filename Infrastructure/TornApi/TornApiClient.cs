@@ -1,7 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using discordBotTest.Features.Chains;
-using discordBotTest.Shared;
 using FactionBot.Infrastructure.TornApi.Models;
 using TornBot.Bot.Infrastructure.TornApi.Models;
 using TornBot.Bot.Shared;
@@ -26,17 +25,11 @@ public class TornApiClient
         };
     }
 
-    private async Task<T> GetAsync<T>(string endpoint, CancellationToken ct = default)
+    private async Task<T> GetAsync<T>(string endpoint, string key, CancellationToken ct = default)
     {
-        var apiKey = await _apiKeyService.GetPublicApiKeyAsync();
-
-        if (apiKey == null)
-        {
-            throw new Exception("No API key set");
-        }
-
-        using var response = await _http.GetAsync($"{endpoint}?key={apiKey}", ct);
-
+        using var response = await _http.GetAsync($"{endpoint}?key={key}", ct);
+        
+        var bodyString = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(ct);
@@ -55,84 +48,53 @@ public class TornApiClient
 
     public async Task<ChainState> GetChainStateAsync(CancellationToken ct = default)
     {
-        return await GetAsync<ChainState>("faction/chain", ct:ct);
+        var key = await _apiKeyService.GetPublicApiKeyAsync();
+        if (key == null)
+        {
+            return null;
+        }
+        return await GetAsync<ChainState>("faction/chain", key, ct);
     }
 
     public async Task<Profile> GetUserProfileByDiscordId(ulong discordId, CancellationToken ct = default)
     {
-        var userDiscordResponse = await GetAsync<UserDiscordResponse>($"user/{discordId}/discord", ct);
+        var key = await _apiKeyService.GetPublicApiKeyAsync();
+        if (key == null)
+        {
+            return null;
+        }
+        var userDiscordResponse = await GetAsync<UserDiscordResponse>($"user/{discordId}/discord", key, ct);
         
         var userBasicResponse =
-            await GetAsync<UserBasicResponse>($"user/{userDiscordResponse.Discord.UserId}/basic", ct);
+            await GetAsync<UserBasicResponse>($"user/{userDiscordResponse.Discord.UserId}/basic", key, ct);
 
         return userBasicResponse.Profile;
     }
 
     public async Task<Faction?> GetUserFactionAsync(int userId, CancellationToken ct = default)
     {
-        var userFacionResponse = await GetAsync<UserFactionResponse>($"user/{userId}/faction", ct);
+        var key = await _apiKeyService.GetPublicApiKeyAsync();
+        if (key == null)
+        {
+            return null;
+        }
+        var userFacionResponse = await GetAsync<UserFactionResponse>($"user/{userId}/faction", key, ct);
 
         if (userFacionResponse.Faction == null) return null;
         
         return userFacionResponse.Faction;
     }
 
-    public Task<FactionRankedWarsResponse> GetRankedWarsAsync(
-        int factionId,
-        CancellationToken ct = default)
+    public async Task<UserResponse> GetUserAsync(ulong userId, CancellationToken ct = default)
     {
-        return GetAsync<FactionRankedWarsResponse>(
-            $"faction/{factionId}/rankedwars",
-            ct:ct);
-    }
-
-    public Task<RankedWarResponse> GetRankedWarAsync(
-        int warId,
-        CancellationToken ct = default)
-    {
-        return GetAsync<RankedWarResponse>(
-            $"torn/rankedwars/{warId}",
-            ct:ct);
-    }
-
-    public Task<RankedWarReportResponse> GetRankedWarReportAsync(
-        int warId,
-        CancellationToken ct = default)
-    {
-        return GetAsync<RankedWarReportResponse>(
-            $"torn/rankedwars/{warId}/report",
-            ct:ct);
-    }
-
-    public Task<FactionMembersResponse> GetFactionMembersAsync(int factionId, CancellationToken ct = default)
-    {
-        return GetAsync<FactionMembersResponse>($"faction/{factionId}/members", ct:ct);
-    }
-
-    public Task<UserResponse> GetUserAsync(
-        int userId,
-        CancellationToken ct = default)
-    {
-        return GetAsync<UserResponse>(
-            $"user/{userId}",
-            ct:ct);
-    }
-
-    public async Task<List<UserResponse>> GetUsersAsync(
-        IEnumerable<int> userIds,
-        CancellationToken ct = default)
-    {
-        var results = new List<UserResponse>();
-
-        foreach (var id in userIds)
+        var tornProfile = await GetUserProfileByDiscordId(userId, ct);
+        
+        var key = await _apiKeyService.GetPublicApiKeyAsync();
+        if (key == null)
         {
-            results.Add(await GetUserAsync(id, ct));
-
-            // Torn rate limit safety
-            await Task.Delay(600, ct);
+            return null;
         }
-
-        return results;
+        return await GetAsync<UserResponse>($"user/{tornProfile.Id}", key, ct);
     }
 
     public async Task<KeyInfo?> GetKeyInfoAsync(string key, CancellationToken ct = default)
@@ -144,10 +106,31 @@ public class TornApiClient
         return keyInfoResponse?.Info;
     }
     
-    public async Task<Factionbasic> GetFactionBasicAsync(int factionId, CancellationToken ct = default)
+    public async Task<Factionbasic?> GetFactionBasicAsync(int factionId, CancellationToken ct = default)
     {
-        var response = await GetAsync<FactionBasicResponse>($"faction/{factionId}/basic", ct:ct);
+        var key = await _apiKeyService.GetPublicApiKeyAsync();
+        if (key == null)
+        {
+            return null;
+        }
+        var response = await GetAsync<FactionBasicResponse>($"faction/{factionId}/basic", key, ct);
         
         return response.Basic;
+    }
+    
+    public async Task<FactionMemberBalance?> GetMemberFactionBalanceByIdAsync(ulong userId, CancellationToken ct = default)
+    {
+        var apiKey = await _apiKeyService.GetLimitedApiKeyAsync(hasFactionAccess: true);
+        if(apiKey == null)
+        {
+            return null;
+        }
+        
+        var response = await GetAsync<FactionBalanceResponse>("faction/balance", apiKey.Key, ct);
+
+        var tornProfile = await GetUserProfileByDiscordId(userId, ct);
+        var memberBalance = response.Balance.Members.FirstOrDefault(x => x.Id == tornProfile.Id);
+        
+        return memberBalance;
     }
 }
