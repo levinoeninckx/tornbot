@@ -35,6 +35,7 @@ public class VerificationService(TornbotContext context, TornApiClient client, R
 
         if (config == null)
         {
+            logger.LogError($"verification config not found for faction {faction.FactionId}");
             return null;
         }
 
