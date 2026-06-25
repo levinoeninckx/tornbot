@@ -45,6 +45,10 @@ public class VerificationService(TornbotContext context, TornApiClient client, R
         {
             roleIds.AddRange(config.FactionRoleIds);
         }
+        else
+        {
+            roleIds.AddRange(config.NonFactionRoleIds);
+        }
 
         var verifiedUser = await restClient.ModifyGuildUserAsync(guildId, userId, properties => 
         {

@@ -98,6 +98,12 @@ public class ConfigurationCommandModule(ChannelService channelService, TornApiCl
                         .WithMinValues(0)
                         .WithMaxValues(25)
                         .WithDefaultValues(config.FactionRoleIds),
+                    new TextDisplayProperties("Non faction roles"),
+                    new RoleMenuProperties("verification_non_faction_roles")
+                        .WithPlaceholder("Select roles assigned to non-faction members")
+                        .WithMinValues(0)
+                        .WithMaxValues(25)
+                        .WithDefaultValues(config.NonFactionRoleIds),
                     new TextDisplayProperties("Allowed roles"),
                     new RoleMenuProperties("verification_allowed_roles")
                         .WithPlaceholder("Select roles allowed to use verify commands")

@@ -103,6 +103,51 @@ public class RoleMenuModule(TornbotContext context, ILogger<RoleMenuModule> logg
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
     }
 
+    [ComponentInteraction("verification_non_faction_roles")]
+    public async Task SetNonFactionRoles()
+    {
+        if (Context.Guild == null)
+        {
+            return;
+        }
+        
+        var faction = await context.Factions
+            .Include(f => f.ModuleConfigs)
+            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild.Id);
+
+        if (faction == null)
+        {
+            // TODO: send message to register faction
+            return;
+        }
+
+        var moduleConfig = faction.ModuleConfigs.SingleOrDefault(c => c.Module == Module.Verification);
+        var config = moduleConfig?.Config.Deserialize<VerificationConfig>();
+
+        if (config == null || moduleConfig == null)
+        {
+            return;
+        }
+        
+        config.NonFactionRoleIds = [.. Context.SelectedValues.Select(r => r.Id)];
+        moduleConfig.Config = JsonDocument.Parse(JsonSerializer.Serialize(config));
+
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogCritical(ex, "Failed to save default verification roles");
+            var msg = MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to save default verification roles");
+            await Context.Interaction.SendFollowupMessageAsync(msg);
+            await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
+            return;
+        }
+
+        await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
+    }
+
     [ComponentInteraction("verification_allowed_roles")]
     public async Task SetAllowedRoles()
     {
