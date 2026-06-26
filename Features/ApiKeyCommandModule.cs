@@ -37,13 +37,7 @@ public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornbotContext con
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Invalid API key");
         }
-
-        var apiKey = new ApiKey(keyInfo.User.Id, key, (AccessLevel)keyInfo.Access.Level)
-        {
-            HasFactionAccess = keyInfo.Access.Faction,
-            HasCompanyAccess = keyInfo.Access.Company
-        };
-
+        
         var faction = await context.Factions
             .Include(f => f.ApiKeys)
             .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
@@ -51,6 +45,12 @@ public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornbotContext con
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Please register this faction with /configure bot");
         }
+        
+        var apiKey = new ApiKey(keyInfo.User.Id, key, (AccessLevel)keyInfo.Access.Level)
+        {
+            HasFactionAccess = keyInfo.Access.Faction,
+            HasCompanyAccess = keyInfo.Access.Company
+        };
         
         faction.ApiKeys.Add(apiKey);
 
@@ -124,7 +124,7 @@ public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornbotContext con
         
         var tornProfile = await client.GetUserProfileByDiscordId(guildUser.Id);
         
-        var apiKeys = await apiKeyService.GetApiKeysByUserIdAsync(tornProfile.Id);
+        var apiKeys = await context.ApiKeys.ToListAsync();
 
         if (!apiKeys.Any())
         {

@@ -4,7 +4,7 @@ namespace TornBot.Bot.Domain.Models;
 
 public class ApiKey(int tornPlayerId, string key, AccessLevel accessLevel)
 {
-    public Guid Id { get; private set; } = Guid.NewGuid();
+    public Guid Id { get; private set; }
     public int TornPlayerId { get; private set; } = tornPlayerId;
     public string Key { get; private set; } = key;
     public int UsageCount { get; private set; } = 0;
