@@ -21,7 +21,7 @@ public class VerificationRoleMenuModule(TornbotContext context, ILogger<Verifica
     [ComponentInteraction("verification_non_faction_roles")]
     public Task SetNonFactionRoles() => UpdateVerificationConfigAsync(config => config.NonFactionRoleIds = [.. Context.SelectedValues.Select(r => r.Id)]);
 
-    [ComponentInteraction("verification_allowed_roles")]
+    [ComponentInteraction("verification_required_roles")]
     public Task SetAllowedRoles() => UpdateVerificationConfigAsync(config => config.AllowedRoleIds = [.. Context.SelectedValues.Select(r => r.Id)]);
 
     private async Task UpdateVerificationConfigAsync(Action<VerificationConfig> updateAction)

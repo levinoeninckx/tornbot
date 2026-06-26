@@ -10,6 +10,7 @@ namespace TornBot.Bot.Features.Configurations.Banking;
 
 public class BankingChannelMenuModule(ModuleConfigRepository repository) : ComponentInteractionModule<ChannelMenuInteractionContext>
 {
+    [ComponentInteraction("banking_restricted_channels")]
     public async Task SetBankingChannels()
     {
         var config = await repository.GetBankingModuleConfigByGuildId(Context.Guild!.Id);

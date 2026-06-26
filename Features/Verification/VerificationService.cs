@@ -53,7 +53,7 @@ public class VerificationService(TornbotContext context, TornApiClient client, R
         var verifiedUser = await restClient.ModifyGuildUserAsync(guildId, userId, properties => 
         {
             properties.WithNickname(nickname);
-            properties.WithRoleIds(roleIds);
+            properties.WithRoleIds(roleIds.Distinct());
         });
 
         return verifiedUser;
