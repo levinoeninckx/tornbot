@@ -44,13 +44,17 @@ public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornbotContext con
             HasCompanyAccess = keyInfo.Access.Company
         };
 
-        var faction = await context.Factions.SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+        var faction = await context.Factions
+            .AsNoTracking()
+            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
         if (faction == null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Please register this faction with /configure bot");
         }
         
         faction.ApiKeys.Add(apiKey);
+
+        context.Factions.Update(faction);
 
         try
         {
