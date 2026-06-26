@@ -84,13 +84,13 @@ public class BankingCommandModule(TornApiClient client, ILogger<BankingCommandMo
         };
 
         var acceptButton = new ButtonProperties($"accept_request:{requesteeId}:{amount}", "Accept", ButtonStyle.Success);
-        var declineButton = new ButtonProperties($"decline_request:{requesteeId}", "Decline", ButtonStyle.Danger);
+        var cancelButton = new ButtonProperties($"cancel_request:{requesteeId}", "Cancel", ButtonStyle.Danger);
 
         return new T
         {
             Embeds = [embed],
             AllowedMentions = new AllowedMentionsProperties { AllowedRoles = [bankerRoleId] },
-            Components = [new ActionRowProperties{ Components = [acceptButton, declineButton ]}]
+            Components = [new ActionRowProperties{ Components = [acceptButton, cancelButton ]}]
         };
     }
 }

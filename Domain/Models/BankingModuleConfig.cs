@@ -8,5 +8,4 @@ public class BankingModuleConfig
     public HashSet<ulong> RestrictedChannelIds { get; set; } = [];
     public ulong? BankerRoleId { get; set; }
     public ModuleState State { get; set; }
-    public bool AllowDm { get; set; }
 }
