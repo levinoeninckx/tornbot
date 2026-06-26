@@ -49,7 +49,7 @@ public class VerifyCommandModule(TornApiClient client, VerificationService verif
 
         if (verifiedUser == null)
         {
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to verify user.");
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to verify user, try again later.");
         }
         
         return new()
