@@ -43,8 +43,6 @@ public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornbotContext con
             HasFactionAccess = keyInfo.Access.Faction,
             HasCompanyAccess = keyInfo.Access.Company
         };
-        
-        var apiKey = new ApiKey(keyInfo.User.Id, key, (AccessLevel)keyInfo.Access.Level);
 
         var faction = await context.Factions.SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
         if (faction == null)
