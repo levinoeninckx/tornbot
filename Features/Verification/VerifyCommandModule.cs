@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
+using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
@@ -10,6 +11,7 @@ namespace TornBot.Bot.Features.Verification;
 
 public class VerifyCommandModule(TornApiClient client, VerificationService verificationService) : ApplicationCommandModule<ApplicationCommandContext>
 {
+    [RequireModuleEnabled(Module.Verification)]
     [RequireVerificationChannels]
     [RequireVerificationRoles]
     [SlashCommand("verify", "Verify your torn account with discord", Contexts = [InteractionContextType.Guild])]

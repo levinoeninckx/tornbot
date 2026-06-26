@@ -9,6 +9,38 @@ namespace TornBot.Bot.Infrastructure;
 
 public class ModuleConfigRepository(TornbotContext context, ILogger<ModuleConfigRepository> logger)
 {
+    public async Task<VerificationConfig?> GetVerificationConfigByGuildId(ulong guildId)
+    {
+        var faction = await context.Factions
+            .Include(faction => faction.ModuleConfigs)
+            .SingleOrDefaultAsync(x => x.GuildId == guildId);
+
+        var moduleConfig = faction?.ModuleConfigs.SingleOrDefault(x => x.Module == Module.Banking);
+
+        if (moduleConfig == null && faction != null)
+        {
+            var newConfig = new ModuleConfig()
+            {
+                Module = Module.Banking,
+                Config = JsonDocument.Parse(JsonSerializer.Serialize(new BankingModuleConfig()))
+            };
+            faction.ModuleConfigs.Add(newConfig);
+
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                logger.LogCritical(ex, "Failed to save module config");
+                return null;
+            }
+
+            return newConfig.Config.Deserialize<VerificationConfig>();
+        }
+
+        return moduleConfig?.Config.Deserialize<VerificationConfig>();
+    }
     public async Task<BankingModuleConfig?> GetBankingModuleConfigByGuildId(ulong guildId)
     {
         var faction = await context.Factions

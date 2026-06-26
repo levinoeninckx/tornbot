@@ -3,12 +3,14 @@ using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
+using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Banking;
 
+[RequireModuleEnabled(Module.Banking)]
 [RequireBankingAllowedRoles]
 [RequireBankingChannel]
 [SlashCommand("banking", "Commands to interact with the banking system", Contexts = [InteractionContextType.Guild])]
