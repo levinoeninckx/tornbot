@@ -37,6 +37,12 @@ public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornbotContext con
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Invalid API key");
         }
+
+        var apiKey = new ApiKey(keyInfo.User.Id, key, (AccessLevel)keyInfo.Access.Level)
+        {
+            HasFactionAccess = keyInfo.Access.Faction,
+            HasCompanyAccess = keyInfo.Access.Company
+        };
         
         var apiKey = new ApiKey(keyInfo.User.Id, key, (AccessLevel)keyInfo.Access.Level);
 

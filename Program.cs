@@ -47,7 +47,8 @@ builder.Services
 builder.Services
     .AddComponentInteractions<RoleMenuInteraction, RoleMenuInteractionContext>()
     .AddComponentInteractions<ChannelMenuInteraction, ChannelMenuInteractionContext>()
-    .AddComponentInteractions<ButtonInteraction, ButtonInteractionContext>();
+    .AddComponentInteractions<ButtonInteraction, ButtonInteractionContext>()
+    .AddComponentInteractions<StringMenuInteraction, StringMenuInteractionContext>();
 
 // Httpclient
 builder.Services.AddHttpClient<TornApiClient>(client =>
@@ -58,6 +59,7 @@ builder.Services.AddHttpClient<TornApiClient>(client =>
 // Set DI services
 builder.Services.AddTransient<ApiKeyService>();
 builder.Services.AddTransient<VerificationService>();
+builder.Services.AddTransient<ModuleConfigRepository>();
 builder.Services.AddSingleton<ChannelService>();
 builder.Services.AddSingleton<FactionService>();
 

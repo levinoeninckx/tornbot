@@ -8,9 +8,9 @@ using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Shared;
 
-namespace TornBot.Bot.Features.Configurations;
+namespace TornBot.Bot.Features.Configurations.Verification;
 
-public class ChannelMenuModule(TornbotContext context, ILogger<ChannelMenuModule> logger) : ComponentInteractionModule<ChannelMenuInteractionContext>
+public class VerificationChannelMenuModule(TornbotContext context, ILogger<VerificationChannelMenuModule> logger) : ComponentInteractionModule<ChannelMenuInteractionContext>
 {
     [ComponentInteraction("auto_verification_channel")]
     public async Task SetAutoVerificationChannel()

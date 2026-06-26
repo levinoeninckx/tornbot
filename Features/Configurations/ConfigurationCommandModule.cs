@@ -7,6 +7,7 @@ using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
 using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
+using TornBot.Bot.Features.Banking;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
@@ -14,7 +15,7 @@ using TornBot.Bot.Shared;
 namespace TornBot.Bot.Features.Configurations;
 
 [SlashCommand("configure", "Configure command", DefaultGuildPermissions = Permissions.Administrator, Contexts = [InteractionContextType.Guild])]
-public class ConfigurationCommandModule(ChannelService channelService, TornApiClient client, TornbotContext context, ILogger<ConfigurationCommandModule> logger)
+public class ConfigurationCommandModule(ModuleConfigRepository moduleConfigRepository, TornApiClient client, TornbotContext context, ILogger<ConfigurationCommandModule> logger)
     : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("bot", "configure this bot for your server")]
@@ -67,7 +68,7 @@ public class ConfigurationCommandModule(ChannelService channelService, TornApiCl
         return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", $"Faction {factionBasic.Name} registered");
     }
 
-    [SubSlashCommand("verification", "configure verification")]
+    [SubSlashCommand("verification", "configure the verification module")]
     public async Task<InteractionMessageProperties> ConfigureVerification()
     {
         var faction = await context.Factions
@@ -80,51 +81,68 @@ public class ConfigurationCommandModule(ChannelService channelService, TornApiCl
         }
 
         var config = faction.ModuleConfigs!.Single(c => c.Module == Module.Verification).Config.Deserialize<VerificationConfig>();
-        return new()
+
+        if (config == null)
         {
-            Components =
-            [
-                new ComponentContainerProperties()
-                {
-                    new TextDisplayProperties("Default roles"),
-                    new RoleMenuProperties("default_verification_roles")
-                        .WithPlaceholder("Select default assigned roles")
-                        .WithMinValues(0)
-                        .WithMaxValues(25)
-                        .WithDefaultValues(config!.DefaultRoleIds),
-                    new TextDisplayProperties("Faction roles"),
-                    new RoleMenuProperties("verification_faction_roles")
-                        .WithPlaceholder("Select roles assigned to faction members")
-                        .WithMinValues(0)
-                        .WithMaxValues(25)
-                        .WithDefaultValues(config.FactionRoleIds),
-                    new TextDisplayProperties("Non faction roles"),
-                    new RoleMenuProperties("verification_non_faction_roles")
-                        .WithPlaceholder("Select roles assigned to non-faction members")
-                        .WithMinValues(0)
-                        .WithMaxValues(25)
-                        .WithDefaultValues(config.NonFactionRoleIds),
-                    new TextDisplayProperties("Allowed roles"),
-                    new RoleMenuProperties("verification_allowed_roles")
-                        .WithPlaceholder("Select roles allowed to use verify commands")
-                        .WithMinValues(0)
-                        .WithMaxValues(25)
-                        .WithDefaultValues(config.AllowedRoleIds),
-                    new TextDisplayProperties("Restricted channels"),
-                    new ChannelMenuProperties("restricted_channels")
-                        .WithPlaceholder("Confine commands to these channels")
-                        .WithMinValues(0)
-                        .WithMaxValues(25)
-                        .WithDefaultValues(config.RestrictedChannelIds),
-                    new TextDisplayProperties("Auto verification channel"),
-                    new ChannelMenuProperties("auto_verification_channel")
-                        .WithPlaceholder("Select channel for verification messages for new users")
-                        .WithMinValues(0)
-                        .WithMaxValues(1)
-                        .WithDefaultValues([config.AutoVerificationChannelId])
-                }
-            ],
-            Flags = MessageFlags.Ephemeral | MessageFlags.IsComponentsV2
-        };
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Module configuration not found");
+        }
+
+        return new ConfigurationMenuBuilder()
+            .AddEnableModuleMenu("verification_enabled", config.Enabled)
+            .AddRequiredRolesMenu("verification_required_roles", config.AllowedRoleIds)
+            .AddRestrictedChannelsMenu("verification_restricted_channels", config.RestrictedChannelIds)
+            .Build()
+            .AddComponents(                    
+                new TextDisplayProperties("Default roles"),
+                new RoleMenuProperties("default_verification_roles")
+                    .WithPlaceholder("Select default assigned roles")
+                    .WithMinValues(0)
+                    .WithMaxValues(25)
+                    .WithDefaultValues(config!.DefaultRoleIds),
+                new TextDisplayProperties("Faction roles"),
+                new RoleMenuProperties("verification_faction_roles")
+                    .WithPlaceholder("Select roles assigned to faction members")
+                    .WithMinValues(0)
+                    .WithMaxValues(25)
+                    .WithDefaultValues(config.FactionRoleIds),
+                new TextDisplayProperties("Non faction roles"),
+                new RoleMenuProperties("verification_non_faction_roles")
+                    .WithPlaceholder("Select roles assigned to non-faction members")
+                    .WithMinValues(0)
+                    .WithMaxValues(25)
+                    .WithDefaultValues(config.NonFactionRoleIds),
+                new TextDisplayProperties("Auto verification channel"),
+                new ChannelMenuProperties("auto_verification_channel")
+                    .WithPlaceholder("Select channel for verification messages for new users")
+                    .WithMinValues(0)
+                    .WithMaxValues(1)
+                    .WithDefaultValues([config.AutoVerificationChannelId])
+            );
     }
+
+    [SubSlashCommand("banking", "configure the banking module")]
+    public async Task<InteractionMessageProperties> ConfigureBanking()
+    {
+        var bankingConfig = await moduleConfigRepository.GetBankingModuleConfigByGuildId(Context.Guild!.Id);
+
+        if (bankingConfig == null)
+        {
+            return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Oops","Could not get banking module config");
+        }
+
+        return new ConfigurationMenuBuilder()
+            .AddEnableModuleMenu("banking_enabled", bankingConfig.State)
+            .AddRequiredRolesMenu("banking_allowed_roles", bankingConfig.AllowedRoleIds)
+            .AddRestrictedChannelsMenu("banking_restricted_channels", bankingConfig.RestrictedChannelIds)
+            .Build()
+            .AddComponents(
+                new TextDisplayProperties("Banker role"),
+                new RoleMenuProperties("banker_roles")
+                    .WithPlaceholder("Select role for bankers")
+                    .WithMinValues(0)
+                    .WithMaxValues(1)
+                    .WithDefaultValues(bankingConfig.BankerRoleId.HasValue ? [bankingConfig.BankerRoleId!.Value] : [])
+                );
+    }
+    
 }

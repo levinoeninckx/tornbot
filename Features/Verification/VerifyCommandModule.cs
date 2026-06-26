@@ -12,7 +12,7 @@ public class VerifyCommandModule(TornApiClient client, VerificationService verif
 {
     [RequireVerificationChannels]
     [RequireVerificationRoles]
-    [SlashCommand("verify", "Verify your torn account with discord")]
+    [SlashCommand("verify", "Verify your torn account with discord", Contexts = [InteractionContextType.Guild])]
     public async Task<InteractionMessageProperties> VerifyUser([SlashCommandParameter] User? user = null)
     {
         
