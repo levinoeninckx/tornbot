@@ -3,14 +3,15 @@ using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
-using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Banking;
 
-[SlashCommand("banking", "Commands to interact with the banking system")]
+[RequireBankingAllowedRoles]
+[RequireBankingChannel]
+[SlashCommand("banking", "Commands to interact with the banking system", Contexts = [InteractionContextType.Guild])]
 public class BankingCommandModule(TornApiClient client, ILogger<BankingCommandModule> logger, ModuleConfigRepository moduleConfigRepository) : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("request", "put in a request for x amount")]
@@ -46,10 +47,10 @@ public class BankingCommandModule(TornApiClient client, ILogger<BankingCommandMo
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Something went wrong while processing your request. Please try again later.");
         }
         
-        // if(memberBalance.Money < amount)
-        // {
-        //     return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Insufficient funds",$"You only have {memberBalance.Money.ToString("C0", CultureInfo.CreateSpecificCulture("en-US"))}");
-        // }
+        if(memberBalance.Money < amount)
+        { 
+            return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Insufficient funds",$"You only have {memberBalance.Money.ToString("C0", CultureInfo.CreateSpecificCulture("en-US"))}");
+        }
 
         if (!bankingModuleConfig.BankerRoleId.HasValue)
         {
