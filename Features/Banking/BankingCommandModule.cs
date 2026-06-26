@@ -15,7 +15,7 @@ namespace TornBot.Bot.Features.Banking;
 public class BankingCommandModule(TornApiClient client, ILogger<BankingCommandModule> logger, ModuleConfigRepository moduleConfigRepository) : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("request", "put in a request for x amount")]
-    public async Task<InteractionMessageProperties> BankRequest(int amount)
+    public async Task<InteractionMessageProperties> BankRequest([SlashCommandParameter] int amount)
     {
         if (amount <= 0)
         {
