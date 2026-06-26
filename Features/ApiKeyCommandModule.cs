@@ -45,7 +45,7 @@ public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornbotContext con
         };
 
         var faction = await context.Factions
-            .AsNoTracking()
+            .Include(f => f.ApiKeys)
             .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
         if (faction == null)
         {
@@ -53,8 +53,6 @@ public class ApiKeyCommandModule(ApiKeyService apiKeyService, TornbotContext con
         }
         
         faction.ApiKeys.Add(apiKey);
-
-        context.Factions.Update(faction);
 
         try
         {
