@@ -10,6 +10,8 @@ using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Banking;
 
+[RequireKey(AccessLevel.Public, false)]
+[RequireKey(AccessLevel.LimitedAccess, true)]
 [RequireModuleEnabled(Module.Banking)]
 [RequireBankingAllowedRoles]
 [RequireBankingChannel]
@@ -17,12 +19,8 @@ namespace TornBot.Bot.Features.Banking;
 public class BankingCommandModule(TornApiClient client, ILogger<BankingCommandModule> logger, ModuleConfigRepository moduleConfigRepository) : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("request", "put in a request for x amount")]
-    public async Task<InteractionMessageProperties> BankRequest([SlashCommandParameter] int amount)
+    public async Task<InteractionMessageProperties> BankRequest([SlashCommandParameter(Description = "Amount to request (e.g. 10k, 2.5m, 1b)", TypeReaderType = typeof(AmountTypeReader))] long amount)
     {
-        if (amount <= 0)
-        {
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Not a valid amount. Please enter a number greater than 0.");    
-        }
         
         if (Context.Guild == null)
         {
@@ -76,7 +74,7 @@ public class BankingCommandModule(TornApiClient client, ILogger<BankingCommandMo
         return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Balance", $"You currently have {balance.Money.ToString("C0", CultureInfo.CreateSpecificCulture("en-US"))} in your faction bank");
     }
 
-    private async Task<T> CreateMessageAsync<T>(ulong bankerRoleId, ulong requesteeId, int amount) where T : IMessageProperties, new()
+    private async Task<T> CreateMessageAsync<T>(ulong bankerRoleId, ulong requesteeId, long amount) where T : IMessageProperties, new()
     {
         var requestee = await client.GetUserProfileByDiscordId(requesteeId);
         var embed = new EmbedProperties()

@@ -15,7 +15,8 @@ public class RequireModuleEnabled(Module module) : PreconditionAttribute<Applica
             throw new ArgumentNullException(nameof(serviceProvider));
         }
         
-        var repo = serviceProvider.GetRequiredService<ModuleConfigRepository>();
+        using var scope = serviceProvider.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<ModuleConfigRepository>();
         switch (module)
         {
             case Module.Banking:
