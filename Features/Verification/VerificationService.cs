@@ -10,7 +10,7 @@ using TornBot.Bot.Infrastructure.TornApi;
 
 namespace TornBot.Bot.Features.Verification;
 
-public class VerificationService(TornbotContext context, TornApiClient client, RestClient restClient, ILogger<VerificationService> logger)
+public class VerificationService(IDbContextFactory<TornbotContext> contextFactory, TornApiClient client, RestClient restClient, ILogger<VerificationService> logger)
 {
     public async Task<GuildUser?> VerifyGuildUserAsync(GuildUser guildUser)
     {
@@ -20,6 +20,7 @@ public class VerificationService(TornbotContext context, TornApiClient client, R
         var profile = await client.GetUserProfileByDiscordId(userId);
         var nickname = $"{profile.Name} [{profile.Id}]";
 
+        await using var context = await contextFactory.CreateDbContextAsync();
         var faction = await context.Factions
             .Include(f => f.ModuleConfigs)
             .SingleOrDefaultAsync(f => f.GuildId == guildId);

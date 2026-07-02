@@ -1,10 +1,12 @@
 using System.Text.Json;
 using discordBotTest.Shared;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
+using Quartz;
 using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Features.Banking;
@@ -15,7 +17,13 @@ using TornBot.Bot.Shared;
 namespace TornBot.Bot.Features.Configurations;
 
 [SlashCommand("configure", "Configure command", DefaultGuildPermissions = Permissions.Administrator, Contexts = [InteractionContextType.Guild])]
-public class ConfigurationCommandModule(ModuleConfigRepository moduleConfigRepository, TornApiClient client, TornbotContext context, ILogger<ConfigurationCommandModule> logger)
+public class ConfigurationCommandModule(
+    ModuleConfigRepository moduleConfigRepository, 
+    TornApiClient client, 
+    IDbContextFactory<TornbotContext> contextFactory, 
+    ISchedulerFactory schedulerFactory,
+    ILogger<ConfigurationCommandModule> logger
+    )
     : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("bot", "configure this bot for your server")]
@@ -27,6 +35,7 @@ public class ConfigurationCommandModule(ModuleConfigRepository moduleConfigRepos
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
         }
         
+        await using var context = await contextFactory.CreateDbContextAsync();
         var isRegistered = await context.Factions.AnyAsync(f => f.GuildId == Context.Guild.Id);
 
         if (isRegistered)
@@ -65,12 +74,15 @@ public class ConfigurationCommandModule(ModuleConfigRepository moduleConfigRepos
         }
         
         var factionBasic = await client.GetFactionBasicAsync(faction.FactionId);
+        if(factionBasic == null) return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to get faction information");
+        
         return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", $"Faction {factionBasic.Name} registered");
     }
 
     [SubSlashCommand("verification", "configure the verification module")]
     public async Task<InteractionMessageProperties> ConfigureVerification()
     {
+        await using var context = await contextFactory.CreateDbContextAsync();
         var faction = await context.Factions
             .Include(f => f.ModuleConfigs)
             .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
@@ -144,5 +156,34 @@ public class ConfigurationCommandModule(ModuleConfigRepository moduleConfigRepos
                     .WithDefaultValues(bankingConfig.BankerRoleId.HasValue ? [bankingConfig.BankerRoleId!.Value] : [])
                 );
     }
+
+    [SubSlashCommand("oc", "configure the OC module")]
+    public async Task<InteractionMessageProperties> ConfigureOc()
+    {
+        var config = await moduleConfigRepository.GetOrganizedCrimeModuleConfigByGuildId(Context.Guild!.Id);
+
+        config!.NotificationChannelId = Context.Channel.Id;
+        
+        await moduleConfigRepository.UpdateModuleConfig(Context.Guild.Id, Module.OrganizedCrime, JsonDocument.Parse(JsonSerializer.Serialize(config)));
+        
+        // Set triggers last because of config still needs to be created first
+        await SetOcTriggers();
+        
+        return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", "OC module configured");
+    }
     
+    private async Task SetOcTriggers()
+    {
+        var scheduler = await schedulerFactory.GetScheduler();
+        
+        var ocTrigger = TriggerBuilder.Create()
+            .WithIdentity($"oc-trigger-{Context.Guild!.Id}")
+            .WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever())
+            .StartAt(DateTimeOffset.UtcNow.AddSeconds(20))
+            .ForJob(new JobKey("GetNewCrimes", "OC"))
+            .UsingJobData("guildId", Context.Guild!.Id.ToString())
+            .Build();
+        
+        await scheduler.ScheduleJob(ocTrigger);
+    }
 }

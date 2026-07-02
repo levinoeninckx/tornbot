@@ -4,10 +4,11 @@ using TornBot.Bot.Infrastructure;
 
 namespace TornBot.Bot.Shared;
 
-public class FactionService(TornbotContext context)
+public class FactionService(IDbContextFactory<TornbotContext> contextFactory)
 {
     public async Task<bool> AddFactionAsync(int factionId, ulong guildId)
     {
+        await using var context = await contextFactory.CreateDbContextAsync();
         var faction = new Faction
         {
             FactionId = factionId,
@@ -30,6 +31,7 @@ public class FactionService(TornbotContext context)
 
     public async Task<Faction?> GetFactionByGuildIdAsync(ulong guildId)
     {
+        await using var context = await contextFactory.CreateDbContextAsync();
         return await context.Factions.SingleOrDefaultAsync(f => f.GuildId == guildId);
     }
 }

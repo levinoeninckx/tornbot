@@ -24,10 +24,23 @@ public class TornApiClient
             PropertyNameCaseInsensitive = true
         };
     }
-
-    private async Task<T> GetAsync<T>(string endpoint, string key, CancellationToken ct = default)
+    
+    public async Task<FactionCrime[]> GetFactionCrimesAsync(CancellationToken ct = default)
     {
-        using var response = await _http.GetAsync($"{endpoint}?key={key}", ct);
+        var key = await _apiKeyService.GetMinimalApiKeyAsync(true);
+        if (key == null)
+        {
+            return []; // TODO: idk what to do here
+        }
+        
+        var queryParameters = "order=DESC&limit=50";
+        var response = await GetAsync<FactionCrimesResponse>( "faction/crimes", key.Key, ct, queryParameters);
+        return response.Crimes;
+    }
+    
+    private async Task<T> GetAsync<T>(string endpoint, string key, CancellationToken ct = default, string queryParamters = "")
+    {
+        using var response = await _http.GetAsync($"{endpoint}?key={key}{queryParamters}", ct);
         
         var bodyString = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
@@ -67,6 +80,19 @@ public class TornApiClient
         
         var userBasicResponse =
             await GetAsync<UserBasicResponse>($"user/{userDiscordResponse.Discord.UserId}/basic", key, ct);
+
+        return userBasicResponse.Profile;
+    }
+    
+    public async Task<Profile?> GetUserProfileById(int userId, CancellationToken ct = default)
+    {
+        var key = await _apiKeyService.GetPublicApiKeyAsync();
+        if (key == null)
+        {
+            return null;
+        }
+        var userBasicResponse =
+            await GetAsync<UserBasicResponse>($"user/{userId}/basic", key, ct);
 
         return userBasicResponse.Profile;
     }
@@ -132,5 +158,18 @@ public class TornApiClient
         var memberBalance = response.Balance.Members.FirstOrDefault(x => x.Id == tornProfile.Id);
         
         return memberBalance;
+    }
+    
+    public async Task<IReadOnlyList<TornItem>?> GetItemsInfoAsync(IEnumerable<int> itemIds, CancellationToken ct = default)
+    {
+        var key = await _apiKeyService.GetPublicApiKeyAsync();
+        if (key == null)
+        {
+            return null;
+        }
+
+        var response = await GetAsync<TornItemsResponse>($"torn/{string.Join(',', itemIds)}/items", key, ct);
+
+        return response.Items;
     }
 }
