@@ -166,6 +166,12 @@ public class ConfigurationCommandModule(
             return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Oops","Could not get OC module config");
         }
         
+        var dbContext = await contextFactory.CreateDbContextAsync();
+        if ((await dbContext.ApiKeys.AnyAsync(k => k.AccessLevel == AccessLevel.Minimal && k.HasFactionAccess)))
+        {
+            await SetOcTriggersAsync();
+        }
+        
         return new ConfigurationMenuBuilder()
             .AddEnableModuleMenu("oc_enabled", ocConfig.State)
             .AddRequiredRolesMenu("oc_allowed_roles", ocConfig.AllowedRoleIds)
@@ -196,7 +202,7 @@ public class ConfigurationCommandModule(
                     .WithDefaultValues(ocConfig.NotificationChannelId.HasValue ? [ocConfig.NotificationChannelId!.Value] : null));
     }
     
-    private async Task SetOcTriggers()
+    private async Task SetOcTriggersAsync()
     {
         var scheduler = await schedulerFactory.GetScheduler();
         
