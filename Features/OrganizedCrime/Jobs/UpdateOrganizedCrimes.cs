@@ -115,7 +115,8 @@ public class UpdateOrganizedCrimes(TornApiClient client, IDbContextFactory<Tornb
             .ToList();
         foreach (var crime in successfulCrimes)
         {
-            
+            await restClient.SendMessageAsync(config.NotificationChannelId!.Value,
+                await CreateSuccessfulMessageAsync(crime, config.NotificationRoleId!.Value));
         }
     }
     
