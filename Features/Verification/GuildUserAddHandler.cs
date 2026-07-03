@@ -11,10 +11,11 @@ using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Verification;
 
-public class GuildUserAddHandler(VerificationService verificationService, TornbotContext context, RestClient client, ILogger<GuildUserAddHandler> logger) : IGuildUserAddGatewayHandler
+public class GuildUserAddHandler(VerificationService verificationService, IDbContextFactory<TornbotContext> contextFactory, RestClient client, ILogger<GuildUserAddHandler> logger) : IGuildUserAddGatewayHandler
 {
     public async ValueTask HandleAsync(GuildUser guildUser)
     {
+        await using var context = await contextFactory.CreateDbContextAsync();
         var faction = await context.Factions
             .Include(f => f.ModuleConfigs)
             .SingleOrDefaultAsync(f => f.GuildId == guildUser.GuildId);

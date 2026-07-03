@@ -1,10 +1,12 @@
 using System.Text.Json;
 using discordBotTest.Shared;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
+using Quartz;
 using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Features.Banking;
@@ -15,7 +17,13 @@ using TornBot.Bot.Shared;
 namespace TornBot.Bot.Features.Configurations;
 
 [SlashCommand("configure", "Configure command", DefaultGuildPermissions = Permissions.Administrator, Contexts = [InteractionContextType.Guild])]
-public class ConfigurationCommandModule(ModuleConfigRepository moduleConfigRepository, TornApiClient client, TornbotContext context, ILogger<ConfigurationCommandModule> logger)
+public class ConfigurationCommandModule(
+    ModuleConfigRepository moduleConfigRepository, 
+    TornApiClient client, 
+    IDbContextFactory<TornbotContext> contextFactory, 
+    ISchedulerFactory schedulerFactory,
+    ILogger<ConfigurationCommandModule> logger
+    )
     : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("bot", "configure this bot for your server")]
@@ -27,6 +35,7 @@ public class ConfigurationCommandModule(ModuleConfigRepository moduleConfigRepos
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
         }
         
+        await using var context = await contextFactory.CreateDbContextAsync();
         var isRegistered = await context.Factions.AnyAsync(f => f.GuildId == Context.Guild.Id);
 
         if (isRegistered)
@@ -65,12 +74,15 @@ public class ConfigurationCommandModule(ModuleConfigRepository moduleConfigRepos
         }
         
         var factionBasic = await client.GetFactionBasicAsync(faction.FactionId);
+        if(factionBasic == null) return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to get faction information");
+        
         return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", $"Faction {factionBasic.Name} registered");
     }
 
     [SubSlashCommand("verification", "configure the verification module")]
     public async Task<InteractionMessageProperties> ConfigureVerification()
     {
+        await using var context = await contextFactory.CreateDbContextAsync();
         var faction = await context.Factions
             .Include(f => f.ModuleConfigs)
             .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
@@ -144,5 +156,58 @@ public class ConfigurationCommandModule(ModuleConfigRepository moduleConfigRepos
                     .WithDefaultValues(bankingConfig.BankerRoleId.HasValue ? [bankingConfig.BankerRoleId!.Value] : [])
                 );
     }
+
+    [SubSlashCommand("oc", "configure the OC module")]
+    public async Task<InteractionMessageProperties> ConfigureOc()
+    {
+        var ocConfig = await moduleConfigRepository.GetOrganizedCrimeModuleConfigByGuildId(Context.Guild!.Id);
+        if (ocConfig == null)
+        {
+            return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Oops","Could not get OC module config");
+        }
+        
+        return new ConfigurationMenuBuilder()
+            .AddEnableModuleMenu("oc_enabled", ocConfig.State)
+            .AddRequiredRolesMenu("oc_allowed_roles", ocConfig.AllowedRoleIds)
+            .AddRestrictedChannelsMenu("oc_restricted_channels", ocConfig.RestrictedChannelIds)
+            .Build()
+            .AddComponents(
+                new TextDisplayProperties("Enable OC notifications"),
+                new StringMenuProperties("oc_notifications_enabled")
+                    .WithOptions([
+                        new StringMenuSelectOptionProperties("Enabled", nameof(ModuleState.Enabled))
+                            { Default = ocConfig.NotificationState == ModuleState.Enabled },
+                        new StringMenuSelectOptionProperties("Disabled", nameof(ModuleState.Disabled))
+                            { Default = ocConfig.NotificationState == ModuleState.Disabled }
+                    ])
+                    .WithMinValues(1)
+                    .WithMaxValues(1),
+                new TextDisplayProperties("OC notification role"),
+                new RoleMenuProperties("oc_notification_role")
+                    .WithPlaceholder("Select role for OC notifications")
+                    .WithMinValues(0)
+                    .WithMaxValues(1)
+                    .WithDefaultValues(ocConfig.NotificationRoleId.HasValue ? [ocConfig.NotificationRoleId!.Value] : null),
+                new TextDisplayProperties("OC notification channel"),
+                new ChannelMenuProperties("oc_notification_channel")
+                    .WithPlaceholder("Select channel for OC notifications")
+                    .WithMinValues(0)
+                    .WithMaxValues(1)
+                    .WithDefaultValues(ocConfig.NotificationChannelId.HasValue ? [ocConfig.NotificationChannelId!.Value] : null));
+    }
     
+    private async Task SetOcTriggers()
+    {
+        var scheduler = await schedulerFactory.GetScheduler();
+        
+        var ocTrigger = TriggerBuilder.Create()
+            .WithIdentity($"oc-trigger-{Context.Guild!.Id}")
+            .WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever())
+            .StartAt(DateTimeOffset.UtcNow.AddSeconds(20))
+            .ForJob(new JobKey("GetNewCrimes", "OC"))
+            .UsingJobData("guildId", Context.Guild!.Id.ToString())
+            .Build();
+        
+        await scheduler.ScheduleJob(ocTrigger);
+    }
 }

@@ -25,6 +25,9 @@
     <PackageReference Include="NetCord.Hosting" Version="1.0.0-alpha.475" />
     <PackageReference Include="NetCord.Hosting.Services" Version="1.0.0-alpha.475" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
+    <PackageReference Include="Quartz" Version="3.18.2" />
+    <PackageReference Include="Quartz.Extensions.DependencyInjection" Version="3.18.2" />
+    <PackageReference Include="Quartz.Extensions.Hosting" Version="3.18.2" />
   </ItemGroup>
 
   <ItemGroup>

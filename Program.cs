@@ -10,6 +10,10 @@ using NetCord.Hosting.Services;
 using NetCord.Hosting.Services.ApplicationCommands;
 using NetCord.Hosting.Services.ComponentInteractions;
 using NetCord.Services.ComponentInteractions;
+using Quartz;
+using Quartz.Logging;
+using TornBot.Bot.Features.OrganizedCrime;
+using TornBot.Bot.Features.OrganizedCrime.Jobs;
 using TornBot.Bot.Features.Verification;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
@@ -28,11 +32,26 @@ var connectionString = builder.Configuration["ConnectionStrings:Tornbot"];
 
 if (string.IsNullOrWhiteSpace(connectionString)) throw new InvalidOperationException("Connection string is not set");
 
-builder.Services.AddDbContext<TornbotContext>(options => options.UseNpgsql(connectionString), ServiceLifetime.Transient, ServiceLifetime.Transient);
+builder.Services.AddDbContextFactory<TornbotContext>(options => options.UseNpgsql(connectionString));
 
 var discordBotToken = builder.Configuration["Discord:Token"];
 
 if(discordBotToken == null) throw new InvalidOperationException("Discord bot token is not set");
+
+builder.Services.AddQuartz(q =>
+{
+    q.UseInMemoryStore();
+    q.UseSimpleTypeLoader();
+    q.UseDefaultThreadPool(p => p.MaxConcurrency = 30);
+    
+    q.AddJob<UpdateOrganizedCrimes>(jobKey: new JobKey("GetNewCrimes", "OC"), x =>
+    {
+        x.StoreDurably(true);
+    });
+});
+builder.Services.AddTransient<UpdateOrganizedCrimes>();
+
+builder.Services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
 
 builder.Services
     .AddDiscordGateway(options =>

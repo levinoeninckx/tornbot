@@ -8,6 +8,7 @@ public class TornbotContext(DbContextOptions<TornbotContext> options) : DbContex
     public DbSet<Faction> Factions { get; set; }
     public DbSet<ApiKey> ApiKeys { get; set; }
     public DbSet<ModuleConfig> ModuleConfigs { get; set; }
+    public DbSet<OrganizedCrime> OrganizedCrimes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
