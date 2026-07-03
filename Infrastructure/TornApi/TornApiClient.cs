@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json;
 using discordBotTest.Features.Chains;
@@ -33,14 +34,71 @@ public class TornApiClient
             return []; // TODO: idk what to do here
         }
         
-        var queryParameters = "order=DESC&limit=50";
-        var response = await GetAsync<FactionCrimesResponse>( "faction/crimes", key.Key, ct, queryParameters);
+        var response = await GetAsync<FactionCrimesResponse>( "faction/crimes", key.Key, ct);
         return response.Crimes;
+    }
+
+    public async Task<FactionCrime[]> GetAllFactionCrimesAsync()
+    {
+        var key = await _apiKeyService.GetMinimalApiKeyAsync(true);
+        if (key == null)
+        {
+            return [];
+        }
+
+        const int limit = 100;
+        const int batchSize = 10; // Number of parallel requests to make at once
+        var allCrimes = new ConcurrentBag<FactionCrime>();
+        int currentOffset = 0;
+        bool hasReachedEnd = false;
+
+        while (!hasReachedEnd)
+        {
+            var tasks = new List<Task<FactionCrimesResponse>>();
+            
+            // Prepare a batch of requests
+            for (int i = 0; i < batchSize; i++)
+            {
+                int offset = currentOffset + (i * limit);
+                var queryParams = $"offset={offset}&limit={limit}";
+                tasks.Add(GetAsync<FactionCrimesResponse>("faction/crimes", key.Key, queryParamters: queryParams, ct: CancellationToken.None));
+            }
+
+            // Execute the batch in parallel
+            var results = await Task.WhenAll(tasks);
+
+            foreach (var response in results)
+            {
+                if (response.Crimes == null || response.Crimes.Length == 0)
+                {
+                    hasReachedEnd = true;
+                    continue;
+                }
+
+                foreach (var crime in response.Crimes)
+                {
+                    allCrimes.Add(crime);
+                }
+
+                // If a page is not full, we've reached the end
+                if (response.Crimes.Length < limit)
+                {
+                    hasReachedEnd = true;
+                }
+            }
+
+            if (!hasReachedEnd)
+            {
+                currentOffset += batchSize * limit;
+            }
+        }
+        
+        return allCrimes.ToArray();
     }
     
     private async Task<T> GetAsync<T>(string endpoint, string key, CancellationToken ct = default, string queryParamters = "")
     {
-        using var response = await _http.GetAsync($"{endpoint}?key={key}{queryParamters}", ct);
+        using var response = await _http.GetAsync($"{endpoint}?key={key}&{queryParamters}", ct);
         
         var bodyString = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
