@@ -160,16 +160,40 @@ public class ConfigurationCommandModule(
     [SubSlashCommand("oc", "configure the OC module")]
     public async Task<InteractionMessageProperties> ConfigureOc()
     {
-        var config = await moduleConfigRepository.GetOrganizedCrimeModuleConfigByGuildId(Context.Guild!.Id);
-
-        config!.NotificationChannelId = Context.Channel.Id;
+        var ocConfig = await moduleConfigRepository.GetOrganizedCrimeModuleConfigByGuildId(Context.Guild!.Id);
+        if (ocConfig == null)
+        {
+            return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Oops","Could not get OC module config");
+        }
         
-        await moduleConfigRepository.UpdateModuleConfig(Context.Guild.Id, Module.OrganizedCrime, JsonDocument.Parse(JsonSerializer.Serialize(config)));
-        
-        // Set triggers last because of config still needs to be created first
-        await SetOcTriggers();
-        
-        return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", "OC module configured");
+        return new ConfigurationMenuBuilder()
+            .AddEnableModuleMenu("oc_enabled", ocConfig.State)
+            .AddRequiredRolesMenu("oc_allowed_roles", ocConfig.AllowedRoleIds)
+            .AddRestrictedChannelsMenu("oc_restricted_channels", ocConfig.RestrictedChannelIds)
+            .Build()
+            .AddComponents(
+                new TextDisplayProperties("Enable OC notifications"),
+                new StringMenuProperties("oc_notifications_enabled")
+                    .WithOptions([
+                        new StringMenuSelectOptionProperties("Enabled", nameof(ModuleState.Enabled))
+                            { Default = ocConfig.NotificationState == ModuleState.Enabled },
+                        new StringMenuSelectOptionProperties("Disabled", nameof(ModuleState.Disabled))
+                            { Default = ocConfig.NotificationState == ModuleState.Disabled }
+                    ])
+                    .WithMinValues(1)
+                    .WithMaxValues(1),
+                new TextDisplayProperties("OC notification role"),
+                new RoleMenuProperties("oc_notification_role")
+                    .WithPlaceholder("Select role for OC notifications")
+                    .WithMinValues(0)
+                    .WithMaxValues(1)
+                    .WithDefaultValues(ocConfig.NotificationRoleId.HasValue ? [ocConfig.NotificationRoleId!.Value] : null),
+                new TextDisplayProperties("OC notification channel"),
+                new ChannelMenuProperties("oc_notification_channel")
+                    .WithPlaceholder("Select channel for OC notifications")
+                    .WithMinValues(0)
+                    .WithMaxValues(1)
+                    .WithDefaultValues(ocConfig.NotificationChannelId.HasValue ? [ocConfig.NotificationChannelId!.Value] : null));
     }
     
     private async Task SetOcTriggers()
