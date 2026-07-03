@@ -1,10 +1,12 @@
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Text;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
 using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Infrastructure.TornApi;
+using TornBot.Bot.Infrastructure.TornApi.Models;
 using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.OrganizedCrime;
@@ -27,18 +29,14 @@ public class OrganizedCrimeCommandModule(TornApiClient client) : ApplicationComm
         var rewardItems = crimes
             .Where(c => c.Status == "Successful")
             .SelectMany(c => c.Rewards.Items)
-            .GroupBy(i => i.Id)
-            .ToImmutableDictionary(i => i.Key, i => i.Sum(s => s.Quantity));
+            .ToImmutableList();
         
-        var itemsInfo = await client.GetItemsInfoAsync(rewardItems.Keys);
-        if (itemsInfo is null)
-        {
-            return;
-        }
-        
-        var rewardItemsTotalValue = itemsInfo
-            .Sum(i => i.Value.MarketPrice * rewardItems[i.Id]);
+        var rewardItemInfo = (await client.GetItemsInfoAsync(rewardItems.Select(i => i.Id)) ?? Array.Empty<TornItem>())
+            .ToFrozenDictionary(i => i.Id, i => i);
 
+        var rewardItemsTotalValue = rewardItems
+            .Sum(i => rewardItemInfo[i.Id].Value.MarketPrice);
+        
         var usedItems = crimes
             .Where(c => c.Status == "Successful")
             .SelectMany(c => c.Slots
@@ -57,10 +55,30 @@ public class OrganizedCrimeCommandModule(TornApiClient client) : ApplicationComm
         
         var totalItemCosts = usedItemsInfo.Sum(i => i.Value.MarketPrice * usedItems[i.Id]);
 
+        var profitStringBuilder = new StringBuilder();
+        profitStringBuilder.AppendLine("### Amount of organized crimes");
+        profitStringBuilder.AppendLine($"{crimes.Length}");
+        
+        profitStringBuilder.AppendLine("### Money earned");
+        profitStringBuilder.AppendLine($"{factionRewardMoney.ToString("C0", new CultureInfo("en-US"))}");
+        
+        profitStringBuilder.AppendLine("### Money from items");
+        profitStringBuilder.AppendLine($"Items earned: {rewardItems.Count}");
+        profitStringBuilder.AppendLine($"{rewardItemsTotalValue.ToString("C0", new CultureInfo("en-US"))}");
+        
+        profitStringBuilder.AppendLine("### Cost of used items");
+        profitStringBuilder.AppendLine($"Items used: {usedItems.Sum(i => i.Value)}");
+        profitStringBuilder.AppendLine($"{totalItemCosts.ToString("C0", new CultureInfo("en-US"))}");
+        
         await Context.Interaction.SendFollowupMessageAsync(new()
         {
-            Content =
-                $"Total money earned: {((factionRewardMoney + rewardItemsTotalValue) - totalItemCosts).ToString("C0", new CultureInfo("en-US"))}"
+            Embeds = [
+                new EmbedProperties
+                {
+                    Title = "Profit report",
+                    Description = profitStringBuilder.ToString()
+                },
+            ]
         });
     }
 }
