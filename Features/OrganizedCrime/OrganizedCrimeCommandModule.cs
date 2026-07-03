@@ -14,6 +14,8 @@ namespace TornBot.Bot.Features.OrganizedCrime;
 
 [RequireKey(AccessLevel.Public, false)]
 [RequireKey(AccessLevel.Minimal, true)]
+[RequireOrganizedCrimesAllowedRoles]
+[RequireOrganizedCrimeRestrictedChannels]
 [SlashCommand("oc", "organized crime related commands")]
 public class OrganizedCrimeCommandModule(TornApiClient client) : ApplicationCommandModule<ApplicationCommandContext>
 {

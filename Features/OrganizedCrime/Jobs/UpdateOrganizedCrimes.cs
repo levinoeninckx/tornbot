@@ -12,7 +12,7 @@ using TornBot.Bot.Infrastructure.TornApi.Models;
 
 namespace TornBot.Bot.Features.OrganizedCrime.Jobs;
 
-public class GetNewCrimesJob(TornApiClient client, IDbContextFactory<TornbotContext> contextFactory, ModuleConfigRepository repository, RestClient restClient, ILogger<GetNewCrimesJob> logger) : IJob
+public class UpdateOrganizedCrimes(TornApiClient client, IDbContextFactory<TornbotContext> contextFactory, ModuleConfigRepository repository, RestClient restClient, ILogger<UpdateOrganizedCrimes> logger) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
     {
@@ -30,6 +30,12 @@ public class GetNewCrimesJob(TornApiClient client, IDbContextFactory<TornbotCont
             if (config == null)
             {
                 logger.LogWarning($"No organized crimes config found for guild: {guildId}");
+                return;
+            }
+
+            if (config.NotificationState == ModuleState.Disabled)
+            {
+                logger.LogWarning($"OC notifications disabled for guild: {guildId}");
                 return;
             }
             
