@@ -55,6 +55,7 @@ public class UpdateOrganizedCrimes(TornApiClient client, IDbContextFactory<Tornb
             
             await ProcessNewCrimes(crimes, config);
             await ProcessSuccessfulCrimes(crimes, config);
+            await ProcessFailedCrimes(crimes, config);
 
         }
         catch (Exception e)
@@ -121,7 +122,7 @@ public class UpdateOrganizedCrimes(TornApiClient client, IDbContextFactory<Tornb
         var trackedCrimes = await dbContext.OrganizedCrimes.ToListAsync();
         
         var successfulCrimes = crimes
-            .Where(c => trackedCrimes.Any(tc => tc.Id == c.Id))
+            .Where(c => trackedCrimes.Any(tc => tc.CrimeId == c.Id))
             .Where(c => c.Status == nameof(OrganizedCrimeStatus.Successful))
             .ToList();
         foreach (var crime in successfulCrimes)
@@ -195,6 +196,23 @@ public class UpdateOrganizedCrimes(TornApiClient client, IDbContextFactory<Tornb
                 }
             ],
         };
+    }
+
+    private async Task ProcessFailedCrimes(IEnumerable<FactionCrime> crimes, OrganizedCrimeModuleConfig config)
+    {
+        await using var dbContext = await contextFactory.CreateDbContextAsync();
+
+        var trackedCrimes = await dbContext.OrganizedCrimes.ToListAsync();
+        
+        var successfulCrimes = crimes
+            .Where(c => trackedCrimes.Any(tc => tc.CrimeId == c.Id))
+            .Where(c => c.Status == nameof(OrganizedCrimeStatus.Failure))
+            .ToList();
+        foreach (var crime in successfulCrimes)
+        {
+            await restClient.SendMessageAsync(config.NotificationChannelId!.Value,
+                await CreateSuccessfulMessageAsync(crime, config.NotificationRoleId!.Value));
+        }
     }
 
     private static MessageProperties CreateFailureMessage(FactionCrime crime, ulong ocNotificationRoleId)
