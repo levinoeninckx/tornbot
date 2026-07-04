@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
@@ -69,8 +70,18 @@ public class UpdateOrganizedCrimes(TornApiClient client, IDbContextFactory<Tornb
         var trackedCrimes = await dbContext.OrganizedCrimes.ToListAsync();
 
         var newCrimes = crimes.Where(c => trackedCrimes
-                .All(tc => tc.Id != c.Id))
-            .Where(c => c.Status == nameof(OrganizedCrimeStatus.Recruiting));
+                .All(tc => tc.CrimeId != c.Id))
+            .Where(c => c.Status == nameof(OrganizedCrimeStatus.Recruiting))
+            .ToImmutableList();
+        
+        dbContext.OrganizedCrimes.AddRange(newCrimes.Select(x => new Domain.Models.OrganizedCrime
+        {
+            CrimeId   = x.Id,
+            Status = OrganizedCrimeStatus.Recruiting,
+        }));
+        
+        await dbContext.SaveChangesAsync();
+        
         if (config.NotificationChannelId == null || config.NotificationRoleId == null) return;
         foreach (var crime in newCrimes)
         {
