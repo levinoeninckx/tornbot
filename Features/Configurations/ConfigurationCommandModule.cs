@@ -205,6 +205,10 @@ public class ConfigurationCommandModule(
     private async Task SetOcTriggersAsync()
     {
         var scheduler = await schedulerFactory.GetScheduler();
+
+        var trigger = await scheduler.GetTrigger(new TriggerKey($"oc-trigger-{Context.Guild!.Id}"));
+        if (trigger != null)
+            return;
         
         var ocTrigger = TriggerBuilder.Create()
             .WithIdentity($"oc-trigger-{Context.Guild!.Id}")
