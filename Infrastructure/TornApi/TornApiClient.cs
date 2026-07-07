@@ -35,6 +35,11 @@ public class TornApiClient
         }
         
         var response = await GetAsync<FactionCrimesResponse>( "faction/crimes", key.Key, ct);
+        if (response.Crimes == null)
+        {
+            throw new InvalidOperationException();
+        }
+        
         return response.Crimes;
     }
 
@@ -98,7 +103,12 @@ public class TornApiClient
     
     private async Task<T> GetAsync<T>(string endpoint, string key, CancellationToken ct = default, string queryParamters = "")
     {
-        using var response = await _http.GetAsync($"{endpoint}?key={key}&{queryParamters}", ct);
+        var url = $"{endpoint}?key={key}";
+        if (!string.IsNullOrEmpty(queryParamters))
+        {
+            url = $"{url}&{queryParamters}";
+        }
+        using var response = await _http.GetAsync(url, ct);
         
         var bodyString = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)

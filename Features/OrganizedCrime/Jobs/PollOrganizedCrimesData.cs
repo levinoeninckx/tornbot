@@ -13,7 +13,7 @@ using TornBot.Bot.Infrastructure.TornApi.Models;
 
 namespace TornBot.Bot.Features.OrganizedCrime.Jobs;
 
-public class UpdateOrganizedCrimes(TornApiClient client, IDbContextFactory<TornbotContext> contextFactory, ModuleConfigRepository repository, RestClient restClient, ILogger<UpdateOrganizedCrimes> logger) : IJob
+public class PollOrganizedCrimesData(TornApiClient client, IDbContextFactory<TornbotContext> contextFactory, ModuleConfigRepository repository, RestClient restClient, ILogger<PollOrganizedCrimesData> logger) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
     {
@@ -51,12 +51,31 @@ public class UpdateOrganizedCrimes(TornApiClient client, IDbContextFactory<Tornb
                 return;
             }
             
-            var crimes = await client.GetFactionCrimesAsync();
-            
-            await ProcessNewCrimes(crimes, config);
-            await ProcessSuccessfulCrimes(crimes, config);
-            await ProcessFailedCrimes(crimes, config);
+            var crimes = await client.GetAllFactionCrimesAsync();
+            await using var dbContext = await contextFactory.CreateDbContextAsync();
 
+            var trackedCrimes = await dbContext.Factions
+                .Include(f => f.OrganizedCrimes)
+                .SelectMany(f => f.OrganizedCrimes)
+                .ToDictionaryAsync(c => c.CrimeId);
+            
+            foreach (var crime in crimes)
+            {
+                var status = Enum.Parse<OrganizedCrimeStatus>(crime.Status);
+                if (!trackedCrimes.ContainsKey(crime.Id))
+                {
+                    if (status == OrganizedCrimeStatus.Recruiting)
+                    {
+                        await HandleNewCrime(guildId, crime, config);
+                    }
+                }
+
+                if (trackedCrimes.ContainsKey(crime.Id) && trackedCrimes[crime.Id].Status != status)
+                {
+                    await HandleStatusChange(guildId, crime, config);
+                }
+            }
+            
         }
         catch (Exception e)
         {
@@ -65,29 +84,49 @@ public class UpdateOrganizedCrimes(TornApiClient client, IDbContextFactory<Tornb
         }
     }
 
-    private async Task ProcessNewCrimes(IEnumerable<FactionCrime> crimes, OrganizedCrimeModuleConfig config)
+    private async Task HandleNewCrime(ulong guildId, FactionCrime crime, OrganizedCrimeModuleConfig config)
     {
         await using var dbContext = await contextFactory.CreateDbContextAsync();
-        var trackedCrimes = await dbContext.OrganizedCrimes.ToListAsync();
 
-        var newCrimes = crimes.Where(c => trackedCrimes
-                .All(tc => tc.CrimeId != c.Id))
-            .Where(c => c.Status == nameof(OrganizedCrimeStatus.Recruiting))
-            .ToImmutableList();
-        
-        dbContext.OrganizedCrimes.AddRange(newCrimes.Select(x => new Domain.Models.OrganizedCrime
+        var newCrime = new Domain.Models.OrganizedCrime()
         {
-            CrimeId   = x.Id,
+            CrimeId = crime.Id,
             Status = OrganizedCrimeStatus.Recruiting,
-        }));
+        };
+        
+        var faction = await dbContext.Factions.SingleAsync(f => f.GuildId == guildId);
+        faction.OrganizedCrimes.Add(newCrime);
         
         await dbContext.SaveChangesAsync();
         
         if (config.NotificationChannelId == null || config.NotificationRoleId == null) return;
-        foreach (var crime in newCrimes)
+        await restClient.SendMessageAsync(config.NotificationChannelId.Value, CreateNewCrimeMessage(crime, config.NotificationRoleId.Value));
+    }
+    
+    private async Task HandleStatusChange(ulong guildId, FactionCrime crime, OrganizedCrimeModuleConfig config)
+    {
+        var status = Enum.Parse<OrganizedCrimeStatus>(crime.Status);
+
+        switch (status)
         {
-            await restClient.SendMessageAsync(config.NotificationChannelId.Value, CreateNewCrimeMessage(crime, config.NotificationRoleId.Value));
+            case OrganizedCrimeStatus.Successful:
+                var successMessage = await CreateSuccessfulMessageAsync(crime, config.NotificationRoleId!.Value);
+                await restClient.SendMessageAsync(config.NotificationChannelId!.Value, successMessage);
+                break;
+            case OrganizedCrimeStatus.Failure:
+                var failureMessage = CreateFailureMessage(crime, config.NotificationRoleId!.Value);
+                await restClient.SendMessageAsync(config.NotificationChannelId!.Value, failureMessage);
+                break;
         }
+        
+        await using var dbContext = await contextFactory.CreateDbContextAsync();
+        var faction = dbContext.Factions
+            .Include(faction => faction.OrganizedCrimes)
+            .FirstOrDefault(c => c.GuildId == guildId);
+        if(faction == null) return;
+        faction.OrganizedCrimes.Remove(faction.OrganizedCrimes.First(c => c.Id == crime.Id));
+        await dbContext.SaveChangesAsync();
+        
     }
     
     private static MessageProperties CreateNewCrimeMessage(FactionCrime crime, ulong ocNotificationRoleId)
@@ -114,24 +153,6 @@ public class UpdateOrganizedCrimes(TornApiClient client, IDbContextFactory<Tornb
             ],
         };
     }
-
-    private async Task ProcessSuccessfulCrimes(IEnumerable<FactionCrime> crimes, OrganizedCrimeModuleConfig config)
-    {
-        await using var dbContext = await contextFactory.CreateDbContextAsync();
-
-        var trackedCrimes = await dbContext.OrganizedCrimes.ToListAsync();
-        
-        var successfulCrimes = crimes
-            .Where(c => trackedCrimes.Any(tc => tc.CrimeId == c.Id))
-            .Where(c => c.Status == nameof(OrganizedCrimeStatus.Successful))
-            .ToList();
-        foreach (var crime in successfulCrimes)
-        {
-            await restClient.SendMessageAsync(config.NotificationChannelId!.Value,
-                await CreateSuccessfulMessageAsync(crime, config.NotificationRoleId!.Value));
-        }
-    }
-    
     private async Task<MessageProperties> CreateSuccessfulMessageAsync(FactionCrime crime, ulong ocNotificationRoleId)
     {
         var stringBuilder = new StringBuilder();
@@ -197,24 +218,6 @@ public class UpdateOrganizedCrimes(TornApiClient client, IDbContextFactory<Tornb
             ],
         };
     }
-
-    private async Task ProcessFailedCrimes(IEnumerable<FactionCrime> crimes, OrganizedCrimeModuleConfig config)
-    {
-        await using var dbContext = await contextFactory.CreateDbContextAsync();
-
-        var trackedCrimes = await dbContext.OrganizedCrimes.ToListAsync();
-        
-        var successfulCrimes = crimes
-            .Where(c => trackedCrimes.Any(tc => tc.CrimeId == c.Id))
-            .Where(c => c.Status == nameof(OrganizedCrimeStatus.Failure))
-            .ToList();
-        foreach (var crime in successfulCrimes)
-        {
-            await restClient.SendMessageAsync(config.NotificationChannelId!.Value,
-                await CreateSuccessfulMessageAsync(crime, config.NotificationRoleId!.Value));
-        }
-    }
-
     private static MessageProperties CreateFailureMessage(FactionCrime crime, ulong ocNotificationRoleId)
     {
         return new MessageProperties
@@ -232,7 +235,6 @@ public class UpdateOrganizedCrimes(TornApiClient client, IDbContextFactory<Tornb
             ],
         };
     }
-    
     private static double CalculateSuccessChance(IEnumerable<int> percentages)
     {
         double totalFailChance = 1.0;

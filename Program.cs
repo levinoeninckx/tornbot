@@ -44,12 +44,12 @@ builder.Services.AddQuartz(q =>
     q.UseSimpleTypeLoader();
     q.UseDefaultThreadPool(p => p.MaxConcurrency = 30);
     
-    q.AddJob<UpdateOrganizedCrimes>(jobKey: new JobKey("GetNewCrimes", "OC"), x =>
+    q.AddJob<PollOrganizedCrimesData>(jobKey: new JobKey("GetNewCrimes", "OC"), x =>
     {
         x.StoreDurably(true);
     });
 });
-builder.Services.AddTransient<UpdateOrganizedCrimes>();
+builder.Services.AddTransient<PollOrganizedCrimesData>();
 
 builder.Services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
 

@@ -7,5 +7,6 @@ public class Faction
     public ulong GuildId { get; set; }
     public HashSet<ApiKey> ApiKeys { get; set; } = [];
     public HashSet<ModuleConfig> ModuleConfigs { get; set; } = [];
+    public HashSet<OrganizedCrime> OrganizedCrimes { get; set; } = [];
     public DateTime CreatedAt { get; set; }
 }
