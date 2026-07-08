@@ -72,6 +72,8 @@ public class ConfigurationCommandModule(
             logger.LogCritical(ex, "Failed to save faction");
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to save faction");
         }
+
+        await SetOcTriggersAsync();
         
         var factionBasic = await client.GetFactionBasicAsync(faction.FactionId);
         if(factionBasic == null) return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to get faction information");
@@ -166,12 +168,6 @@ public class ConfigurationCommandModule(
             return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Oops","Could not get OC module config");
         }
         
-        var dbContext = await contextFactory.CreateDbContextAsync();
-        if ((await dbContext.ApiKeys.AnyAsync(k => k.AccessLevel == AccessLevel.Minimal && k.HasFactionAccess)))
-        {
-            await SetOcTriggersAsync();
-        }
-        
         return new ConfigurationMenuBuilder()
             .AddEnableModuleMenu("oc_enabled", ocConfig.State)
             .AddRequiredRolesMenu("oc_allowed_roles", ocConfig.AllowedRoleIds)
@@ -200,6 +196,13 @@ public class ConfigurationCommandModule(
                     .WithMinValues(0)
                     .WithMaxValues(1)
                     .WithDefaultValues(ocConfig.NotificationChannelId.HasValue ? [ocConfig.NotificationChannelId!.Value] : null));
+    }
+
+    [SubSlashCommand("notifications", "set up the background tasks for notifications")]
+    public async Task<InteractionMessageProperties> ConfigureNotifications()
+    {
+        await SetOcTriggersAsync();
+        return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", "Background tasks set up");
     }
     
     private async Task SetOcTriggersAsync()

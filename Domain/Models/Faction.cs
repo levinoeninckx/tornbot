@@ -8,5 +8,6 @@ public class Faction
     public HashSet<ApiKey> ApiKeys { get; set; } = [];
     public HashSet<ModuleConfig> ModuleConfigs { get; set; } = [];
     public HashSet<OrganizedCrime> OrganizedCrimes { get; set; } = [];
+    public HashSet<MemberState> MemberStates { get; set; } = [];
     public DateTime CreatedAt { get; set; }
 }
