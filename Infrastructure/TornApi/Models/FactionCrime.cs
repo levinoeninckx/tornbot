@@ -9,7 +9,7 @@ public class FactionCrime
     public int? PreviousCrimeId { get; set; }
     public string Name { get; set; } = "";   
     public int Difficulty { get; set; }
-    public string Status { get; set; } = "";  // "Recruiting","Planning","Successful","Failure","Expired"
+    public string Status { get; set; } = "";
     [JsonPropertyName("created_at")]
     public long CreatedAt { get; set; }
     [JsonPropertyName("planning_at")]

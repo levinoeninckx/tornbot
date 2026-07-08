@@ -27,55 +27,22 @@ public class PollOrganizedCrimesData(TornApiClient client, IDbContextFactory<Tor
         {
             var guildId = Convert.ToUInt64(context.MergedJobDataMap.GetString("guildId"));
             var config = await repository.GetOrganizedCrimeModuleConfigByGuildId(guildId);
-            
-            if (config == null)
-            {
-                logger.LogWarning($"No organized crimes config found for guild: {guildId}");
-                return;
-            }
 
-            if (config.NotificationState == ModuleState.Disabled)
-            {
-                logger.LogWarning($"OC notifications disabled for guild: {guildId}");
-                return;
-            }
-            
-            if (config.NotificationChannelId == null)
-            {
-                logger.LogWarning($"No notification channel id found for guild: {guildId}");
-                return;
-            }
-            
-            if (config.NotificationRoleId == null)
-            {
-                return;
-            }
-            
-            var crimes = await client.GetAllFactionCrimesAsync();
+            if (ValidateConfig(config, guildId)) return;
+
             await using var dbContext = await contextFactory.CreateDbContextAsync();
-
-            var trackedCrimes = await dbContext.Factions
+            var faction = await dbContext.Factions
                 .Include(f => f.OrganizedCrimes)
-                .SelectMany(f => f.OrganizedCrimes)
-                .ToDictionaryAsync(c => c.CrimeId);
-            
-            foreach (var crime in crimes)
-            {
-                var status = Enum.Parse<OrganizedCrimeStatus>(crime.Status);
-                if (!trackedCrimes.ContainsKey(crime.Id))
-                {
-                    if (status == OrganizedCrimeStatus.Recruiting)
-                    {
-                        await HandleNewCrime(guildId, crime, config);
-                    }
-                }
+                .SingleOrDefaultAsync(f => f.GuildId == guildId);
 
-                if (trackedCrimes.ContainsKey(crime.Id) && trackedCrimes[crime.Id].Status != status)
-                {
-                    await HandleStatusChange(guildId, crime, config);
-                }
-            }
-            
+            if (faction == null) return;
+
+            var crimes = await client.GetAllFactionCrimesAsync();
+
+            await ProcessNewCrimes(faction, crimes, config!);
+            await ProcessExistingCrimes(faction, crimes, config!);
+
+            await dbContext.SaveChangesAsync();
         }
         catch (Exception e)
         {
@@ -84,52 +51,89 @@ public class PollOrganizedCrimesData(TornApiClient client, IDbContextFactory<Tor
         }
     }
 
-    private async Task HandleNewCrime(ulong guildId, FactionCrime crime, OrganizedCrimeModuleConfig config)
+    private async Task ProcessNewCrimes(Faction faction, FactionCrime[] crimes, OrganizedCrimeModuleConfig config)
     {
-        await using var dbContext = await contextFactory.CreateDbContextAsync();
+        var trackedCrimeIds = faction.OrganizedCrimes.Select(c => c.CrimeId).ToImmutableHashSet();
+        var untrackedCrimes = crimes
+            .Where(c => c.Status is nameof(OrganizedCrimeStatus.Recruiting) or nameof(OrganizedCrimeStatus.Planning))
+            .Where(c => !trackedCrimeIds.Contains(c.Id))
+            .ToList();
 
-        var newCrime = new Domain.Models.OrganizedCrime()
-        {
-            CrimeId = crime.Id,
-            Status = OrganizedCrimeStatus.Recruiting,
-        };
-        
-        var faction = await dbContext.Factions.SingleAsync(f => f.GuildId == guildId);
-        faction.OrganizedCrimes.Add(newCrime);
-        
-        await dbContext.SaveChangesAsync();
-        
-        if (config.NotificationChannelId == null || config.NotificationRoleId == null) return;
-        await restClient.SendMessageAsync(config.NotificationChannelId.Value, CreateNewCrimeMessage(crime, config.NotificationRoleId.Value));
-    }
-    
-    private async Task HandleStatusChange(ulong guildId, FactionCrime crime, OrganizedCrimeModuleConfig config)
-    {
-        var status = Enum.Parse<OrganizedCrimeStatus>(crime.Status);
+        if (untrackedCrimes.Count == 0) return;
 
-        switch (status)
+        foreach (var crime in untrackedCrimes)
         {
-            case OrganizedCrimeStatus.Successful:
-                var successMessage = await CreateSuccessfulMessageAsync(crime, config.NotificationRoleId!.Value);
-                await restClient.SendMessageAsync(config.NotificationChannelId!.Value, successMessage);
-                break;
-            case OrganizedCrimeStatus.Failure:
-                var failureMessage = CreateFailureMessage(crime, config.NotificationRoleId!.Value);
-                await restClient.SendMessageAsync(config.NotificationChannelId!.Value, failureMessage);
-                break;
+            faction.OrganizedCrimes.Add(new Domain.Models.OrganizedCrime
+            {
+                CrimeId = crime.Id,
+                Status = Enum.Parse<OrganizedCrimeStatus>(crime.Status)
+            });
         }
-        
-        await using var dbContext = await contextFactory.CreateDbContextAsync();
-        var faction = dbContext.Factions
-            .Include(faction => faction.OrganizedCrimes)
-            .FirstOrDefault(c => c.GuildId == guildId);
-        if(faction == null) return;
-        faction.OrganizedCrimes.Remove(faction.OrganizedCrimes.First(c => c.Id == crime.Id));
-        await dbContext.SaveChangesAsync();
-        
+
+        var roleId = config.NotificationRoleId!.Value;
+        var channelId = config.NotificationChannelId!.Value;
+        var embeds = untrackedCrimes.Select(CreateNewCrimeEmbed).ToList();
+
+        for (var i = 0; i < embeds.Count; i += 10)
+        {
+            var batch = embeds.Skip(i).Take(10).ToList();
+            await restClient.SendMessageAsync(channelId, CreateNewCrimeMessage(batch, roleId));
+        }
+    }
+
+    private async Task ProcessExistingCrimes(Faction faction, FactionCrime[] crimes, OrganizedCrimeModuleConfig config)
+    {
+        var crimeDict = crimes.ToDictionary(c => c.Id);
+        var trackedCrimes = faction.OrganizedCrimes.ToList();
+
+        foreach (var trackedCrime in trackedCrimes)
+        {
+            if (!crimeDict.TryGetValue(trackedCrime.CrimeId, out var apiCrime)) continue;
+
+            var currentStatus = Enum.Parse<OrganizedCrimeStatus>(apiCrime.Status);
+            if (currentStatus != OrganizedCrimeStatus.Successful &&
+                currentStatus != OrganizedCrimeStatus.Failure) continue;
+            var roleId = config.NotificationRoleId!.Value;
+            var channelId = config.NotificationChannelId!.Value;
+
+            var message = currentStatus == OrganizedCrimeStatus.Successful
+                ? await CreateSuccessfulMessageAsync(apiCrime, roleId)
+                : CreateFailureMessage(apiCrime, roleId);
+
+            await restClient.SendMessageAsync(channelId, message);
+            faction.OrganizedCrimes.Remove(trackedCrime);
+        }
+    }
+
+    private bool ValidateConfig(OrganizedCrimeModuleConfig? config, ulong guildId)
+    {
+        if (config == null)
+        {
+            logger.LogWarning($"No organized crimes config found for guild: {guildId}");
+            return true;
+        }
+
+        if (config.NotificationState == ModuleState.Disabled)
+        {
+            logger.LogWarning($"OC notifications disabled for guild: {guildId}");
+            return true;
+        }
+            
+        if (config.NotificationChannelId == null)
+        {
+            logger.LogWarning($"No notification channel id found for guild: {guildId}");
+            return true;
+        }
+            
+        if (config.NotificationRoleId == null)
+        {
+            return true;
+        }
+
+        return false;
     }
     
-    private static MessageProperties CreateNewCrimeMessage(FactionCrime crime, ulong ocNotificationRoleId)
+    private static EmbedProperties CreateNewCrimeEmbed(FactionCrime crime)
     {
         var stringBuilder = new StringBuilder();
 
@@ -137,20 +141,24 @@ public class PollOrganizedCrimesData(TornApiClient client, IDbContextFactory<Tor
         {
             stringBuilder.AppendLine($"{sg.First().Position}: x{sg.Count()}");
         }
-        
+
+        return new EmbedProperties
+        {
+            Fields =
+            [
+                new() { Name = "Crime", Value = crime.Name },
+                new() { Name = "Difficulty", Value = crime.Difficulty.ToString() },
+                new() { Name = "Slots", Value = stringBuilder.ToString() }
+            ]
+        };
+    }
+    
+    private static MessageProperties CreateNewCrimeMessage(IEnumerable<EmbedProperties> embeds, ulong ocNotificationRoleId)
+    {
         return new MessageProperties
         {
             Content = $"<@&{ocNotificationRoleId}>",
-            Embeds = [
-                new EmbedProperties
-                {
-                    Fields = [
-                        new() { Name = "Crime", Value = crime.Name },
-                        new() { Name = "Difficulty", Value = crime.Difficulty.ToString() },
-                        new() { Name = "Slots", Value = stringBuilder.ToString() }
-                    ]
-                }
-            ],
+            Embeds = embeds.ToList(),
         };
     }
     private async Task<MessageProperties> CreateSuccessfulMessageAsync(FactionCrime crime, ulong ocNotificationRoleId)
