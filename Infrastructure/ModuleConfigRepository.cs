@@ -11,85 +11,39 @@ public class ModuleConfigRepository(IDbContextFactory<TornbotContext> contextFac
 {
     public async Task<VerificationConfig?> GetVerificationConfigByGuildId(ulong guildId)
     {
-        await using var context = await contextFactory.CreateDbContextAsync();
-        var faction = await context.Factions
-            .Include(faction => faction.ModuleConfigs)
-            .SingleOrDefaultAsync(x => x.GuildId == guildId);
-
-        var moduleConfig = faction?.ModuleConfigs.SingleOrDefault(x => x.Module == Module.Verification);
-
-        if (moduleConfig == null && faction != null)
-        {
-            var newConfig = new ModuleConfig()
-            {
-                Module = Module.Banking,
-                Config = JsonDocument.Parse(JsonSerializer.Serialize(new VerificationConfig()))
-            };
-            faction.ModuleConfigs.Add(newConfig);
-
-            try
-            {
-                await context.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                logger.LogCritical(ex, "Failed to save module config");
-                return null;
-            }
-
-            return newConfig.Config.Deserialize<VerificationConfig>();
-        }
-
-        return moduleConfig?.Config.Deserialize<VerificationConfig>();
+        return await GetModuleConfigByGuildId<VerificationConfig>(guildId, Module.Verification);
     }
+    
     public async Task<BankingModuleConfig?> GetBankingModuleConfigByGuildId(ulong guildId)
     {
-        await using var context = await contextFactory.CreateDbContextAsync();
-        var faction = await context.Factions
-            .Include(faction => faction.ModuleConfigs)
-            .SingleOrDefaultAsync(x => x.GuildId == guildId);
-
-        var moduleConfig = faction?.ModuleConfigs.SingleOrDefault(x => x.Module == Module.Banking);
-
-        if (moduleConfig == null && faction != null)
-        {
-            var newConfig = new ModuleConfig()
-            {
-                Module = Module.Banking,
-                Config = JsonDocument.Parse(JsonSerializer.Serialize(new BankingModuleConfig()))
-            };
-            faction.ModuleConfigs.Add(newConfig);
-
-            try
-            {
-                await context.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                logger.LogCritical(ex, "Failed to save module config");
-                return null;
-            }
-
-            return newConfig.Config.Deserialize<BankingModuleConfig>();
-        }
-
-        return moduleConfig?.Config.Deserialize<BankingModuleConfig>();
+        return await GetModuleConfigByGuildId<BankingModuleConfig>(guildId, Module.Banking);
     }
+    
     public async Task<OrganizedCrimeModuleConfig?> GetOrganizedCrimeModuleConfigByGuildId(ulong guildId) 
+    {
+        return await GetModuleConfigByGuildId<OrganizedCrimeModuleConfig>(guildId, Module.OrganizedCrime);
+    }
+    
+    public async Task<RetalModuleConfig?> GetRetalModuleConfigByGuildId(ulong guildId)
+    {
+        return await GetModuleConfigByGuildId<RetalModuleConfig>(guildId, Module.Retal);
+    }
+    
+    private async Task<T?> GetModuleConfigByGuildId<T>(ulong guildId, Module module) where T : class
     {
         await using var context = await contextFactory.CreateDbContextAsync();
         var faction = await context.Factions
             .Include(faction => faction.ModuleConfigs)
             .SingleOrDefaultAsync(x => x.GuildId == guildId);
 
-        var moduleConfig = faction?.ModuleConfigs.SingleOrDefault(x => x.Module == Module.OrganizedCrime);
+        var moduleConfig = faction?.ModuleConfigs.SingleOrDefault(x => x.Module == module);
 
         if (moduleConfig == null && faction != null)
         {
             var newConfig = new ModuleConfig()
             {
-                Module = Module.OrganizedCrime,
-                Config = JsonDocument.Parse(JsonSerializer.Serialize(new OrganizedCrimeModuleConfig()))
+                Module = module,
+                Config = JsonDocument.Parse(JsonSerializer.Serialize(Activator.CreateInstance<T>()))
             };
             faction.ModuleConfigs.Add(newConfig);
 
@@ -103,11 +57,12 @@ public class ModuleConfigRepository(IDbContextFactory<TornbotContext> contextFac
                 return null;
             }
 
-            return newConfig.Config.Deserialize<OrganizedCrimeModuleConfig>();
+            return newConfig.Config.Deserialize<T>();
         }
 
-        return moduleConfig?.Config.Deserialize<OrganizedCrimeModuleConfig>();
+        return moduleConfig?.Config.Deserialize<T>();
     }
+    
     public async Task<bool> UpdateModuleConfig(ulong guildId, Module module, JsonDocument jsonConfig)
     {
         await using var context = await contextFactory.CreateDbContextAsync();

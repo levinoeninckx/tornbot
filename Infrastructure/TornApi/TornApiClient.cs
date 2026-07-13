@@ -218,9 +218,9 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService)
         return response.Basic;
     }
     
-    public async Task<FactionMemberBalance?> GetMemberFactionBalanceByIdAsync(ulong userId, CancellationToken ct = default)
+    public async Task<FactionMemberBalance?> GetMemberFactionBalanceByIdAsync(ulong guildId, ulong userId, CancellationToken ct = default)
     {
-        var apiKey = await apiKeyService.GetLimitedApiKeyAsync(hasFactionAccess: true);
+        var apiKey = await apiKeyService.GetLimitedApiKeyAsync(guildId, hasFactionAccess: true);
         if(apiKey == null)
         {
             return null;

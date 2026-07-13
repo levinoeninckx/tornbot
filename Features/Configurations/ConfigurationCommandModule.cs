@@ -1,7 +1,6 @@
 using System.Text.Json;
 using discordBotTest.Shared;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
@@ -9,7 +8,6 @@ using NetCord.Services.ApplicationCommands;
 using Quartz;
 using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
-using TornBot.Bot.Features.Banking;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
@@ -205,6 +203,22 @@ public class ConfigurationCommandModule(
         return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", "Background tasks set up");
     }
     
+    [SubSlashCommand("retal", "configure the retailed module")]
+    public async Task<InteractionMessageProperties> ConfigureRetail()
+    {
+        await SetRetalTriggersAsync();
+        return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", "Retail module configured");
+    }
+
+    private async Task SetRetalTriggersAsync()
+    {
+        var scheduler = await schedulerFactory.GetScheduler();
+
+        var trigger = await scheduler.GetTrigger(new TriggerKey($"retal-trigger-{Context.Guild!.Id}"));
+        if (trigger != null)
+            return;
+    }
+
     private async Task SetOcTriggersAsync()
     {
         var scheduler = await schedulerFactory.GetScheduler();

@@ -4,5 +4,6 @@ public enum Module
 {
     Verification,
     Banking,
-    OrganizedCrime
+    OrganizedCrime,
+    Retal
 }
