@@ -47,8 +47,11 @@ public class GetIncomingAttacks(
             
             var trackedAttacks = faction.TrackedAttacks.Select(a => a.AttackId).ToImmutableHashSet();
             var attacks = await attackService.GetIncomingAttacks(guildId);
-        
-            foreach (var attack in attacks.Where(a => !trackedAttacks.Contains((ulong)a.Id)).Where(a => (DateTime.UtcNow - a.Ended < TimeSpan.FromMinutes(5))))
+
+            var newTrackedAttacks = attacks
+                .Where(a => !trackedAttacks.Contains((ulong)a.Id))
+                .Where(a => (DateTime.UtcNow - a.Ended < TimeSpan.FromMinutes(5)));
+            foreach (var attack in newTrackedAttacks)
             {
                 if (attack.Attacker == null)
                     continue;
@@ -57,6 +60,12 @@ public class GetIncomingAttacks(
                 if (attackerBasic == null || defenderBasic == null)
                 {
                     logger.LogWarning($"Something went wrong requesting user info for: {attack.Attacker.Id},{attack.Defender.Id}");  
+                    continue;
+                }
+
+                if (attackerBasic.FactionId == defenderBasic.FactionId)
+                {
+                    logger.LogInformation("{AttackerBasicName} and {DefenderBasicName} are on the same faction, skipping", attackerBasic.Name, defenderBasic.Name);
                     continue;
                 }
 
