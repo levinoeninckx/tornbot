@@ -211,15 +211,15 @@ public class ConfigurationCommandModule(
             .AddEnableModuleMenu("retal_enabled", config!.State)
             .Build()
             .AddComponents(
-                new TextDisplayProperties("OC notification role"),
-                new RoleMenuProperties("oc_notification_role")
-                    .WithPlaceholder("Select role for OC notifications")
+                new TextDisplayProperties("Retal notification role"),
+                new RoleMenuProperties("retal_notification_role")
+                    .WithPlaceholder("Select role for retal notifications")
                     .WithMinValues(0)
                     .WithMaxValues(1)
                     .WithDefaultValues(config.NotificationRoleId.HasValue ? [config.NotificationRoleId!.Value] : null),
-                new TextDisplayProperties("OC notification channel"),
-                new ChannelMenuProperties("oc_notification_channel")
-                    .WithPlaceholder("Select channel for OC notifications")
+                new TextDisplayProperties("Retal notification channel"),
+                new ChannelMenuProperties("retal_notification_channel")
+                    .WithPlaceholder("Select channel for retal notifications")
                     .WithMinValues(0)
                     .WithMaxValues(1)
                     .WithDefaultValues(config.NotificationChannelId.HasValue
