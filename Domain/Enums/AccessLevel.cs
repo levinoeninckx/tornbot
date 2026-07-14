@@ -5,5 +5,6 @@ public enum AccessLevel
     Public = 1,
     Minimal = 2,
     LimitedAccess = 3,
-    Full = 4
+    Full = 4,
+    FfScouter = 10
 }

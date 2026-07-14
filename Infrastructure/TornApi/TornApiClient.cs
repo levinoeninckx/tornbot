@@ -2,36 +2,26 @@ using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json;
 using discordBotTest.Features.Chains;
-using FactionBot.Infrastructure.TornApi.Models;
+using TornBot.Bot.Domain.Enums;
+using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Infrastructure.TornApi.Models;
 using TornBot.Bot.Shared;
+using Faction = FactionBot.Infrastructure.TornApi.Models.Faction;
 
 namespace TornBot.Bot.Infrastructure.TornApi;
 
-public class TornApiClient
+public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService)
 {
-    private readonly HttpClient _http;
-    private readonly JsonSerializerOptions _jsonOptions;
-    private readonly ApiKeyService _apiKeyService;
-
-    public TornApiClient(ApiKeyService apiKeyService, HttpClient httpClient)
+    private readonly JsonSerializerOptions _jsonOptions = new()
     {
-        _http = httpClient;
+        PropertyNameCaseInsensitive = true
+    };
 
-        _apiKeyService = apiKeyService;
-
-        _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-    }
-    
-    public async Task<FactionCrime[]> GetFactionCrimesAsync(CancellationToken ct = default)
+    public async Task<FactionCrime[]> GetFactionCrimesAsync(ApiKey key, CancellationToken ct = default)
     {
-        var key = await _apiKeyService.GetMinimalApiKeyAsync(true);
-        if (key == null)
+        if(key.AccessLevel != AccessLevel.Minimal || !key.HasFactionAccess)
         {
-            return []; // TODO: idk what to do here
+            return [];
         }
         
         var response = await GetAsync<FactionCrimesResponse>( "faction/crimes", key.Key, ct);
@@ -43,9 +33,25 @@ public class TornApiClient
         return response.Crimes;
     }
 
+    public async Task<IReadOnlyList<FactionMember>> GetFactionMembersByFactionIdAsync(int factionId, CancellationToken ct = default)
+    {
+        var key = await apiKeyService.GetPublicApiKeyAsync();
+        if (key == null)
+        {
+            return [];
+        }
+        
+        var response = await GetAsync<FactionMembersResponse>($"faction/{factionId}/members", key, ct);
+        if (response.Members == null)
+        {
+            throw new InvalidOperationException();
+        }
+
+        return response.Members;
+    }
     public async Task<FactionCrime[]> GetAllFactionCrimesAsync()
     {
-        var key = await _apiKeyService.GetMinimalApiKeyAsync(true);
+        var key = await apiKeyService.GetMinimalApiKeyAsync(true);
         if (key == null)
         {
             return [];
@@ -108,7 +114,7 @@ public class TornApiClient
         {
             url = $"{url}&{queryParamters}";
         }
-        using var response = await _http.GetAsync(url, ct);
+        using var response = await httpClient.GetAsync(url, ct);
         
         var bodyString = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
@@ -129,7 +135,7 @@ public class TornApiClient
 
     public async Task<ChainState> GetChainStateAsync(CancellationToken ct = default)
     {
-        var key = await _apiKeyService.GetPublicApiKeyAsync();
+        var key = await apiKeyService.GetPublicApiKeyAsync();
         if (key == null)
         {
             return null;
@@ -139,7 +145,7 @@ public class TornApiClient
 
     public async Task<Profile> GetUserProfileByDiscordId(ulong discordId, CancellationToken ct = default)
     {
-        var key = await _apiKeyService.GetPublicApiKeyAsync();
+        var key = await apiKeyService.GetPublicApiKeyAsync();
         if (key == null)
         {
             return null;
@@ -154,7 +160,7 @@ public class TornApiClient
     
     public async Task<Profile?> GetUserProfileById(int userId, CancellationToken ct = default)
     {
-        var key = await _apiKeyService.GetPublicApiKeyAsync();
+        var key = await apiKeyService.GetPublicApiKeyAsync();
         if (key == null)
         {
             return null;
@@ -167,7 +173,7 @@ public class TornApiClient
 
     public async Task<Faction?> GetUserFactionAsync(int userId, CancellationToken ct = default)
     {
-        var key = await _apiKeyService.GetPublicApiKeyAsync();
+        var key = await apiKeyService.GetPublicApiKeyAsync();
         if (key == null)
         {
             return null;
@@ -183,7 +189,7 @@ public class TornApiClient
     {
         var tornProfile = await GetUserProfileByDiscordId(userId, ct);
         
-        var key = await _apiKeyService.GetPublicApiKeyAsync();
+        var key = await apiKeyService.GetPublicApiKeyAsync();
         if (key == null)
         {
             return null;
@@ -193,7 +199,7 @@ public class TornApiClient
 
     public async Task<KeyInfo?> GetKeyInfoAsync(string key, CancellationToken ct = default)
     {
-        using var response = await _http.GetAsync($"key/info?key={key}", ct);
+        using var response = await httpClient.GetAsync($"key/info?key={key}", ct);
         
         var keyInfoResponse = await response.Content.ReadFromJsonAsync<KeyInfoResponse>(cancellationToken: ct);
 
@@ -202,7 +208,7 @@ public class TornApiClient
     
     public async Task<Factionbasic?> GetFactionBasicAsync(int factionId, CancellationToken ct = default)
     {
-        var key = await _apiKeyService.GetPublicApiKeyAsync();
+        var key = await apiKeyService.GetPublicApiKeyAsync();
         if (key == null)
         {
             return null;
@@ -212,9 +218,9 @@ public class TornApiClient
         return response.Basic;
     }
     
-    public async Task<FactionMemberBalance?> GetMemberFactionBalanceByIdAsync(ulong userId, CancellationToken ct = default)
+    public async Task<FactionMemberBalance?> GetMemberFactionBalanceByIdAsync(ulong guildId, ulong userId, CancellationToken ct = default)
     {
-        var apiKey = await _apiKeyService.GetLimitedApiKeyAsync(hasFactionAccess: true);
+        var apiKey = await apiKeyService.GetLimitedApiKeyAsync(guildId, hasFactionAccess: true);
         if(apiKey == null)
         {
             return null;
@@ -230,7 +236,7 @@ public class TornApiClient
     
     public async Task<IReadOnlyList<TornItem>?> GetItemsInfoAsync(IEnumerable<int> itemIds, CancellationToken ct = default)
     {
-        var key = await _apiKeyService.GetPublicApiKeyAsync();
+        var key = await apiKeyService.GetPublicApiKeyAsync();
         if (key == null)
         {
             return null;

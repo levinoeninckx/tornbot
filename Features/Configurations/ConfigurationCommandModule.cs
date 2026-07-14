@@ -1,7 +1,6 @@
 using System.Text.Json;
 using discordBotTest.Shared;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
@@ -9,7 +8,6 @@ using NetCord.Services.ApplicationCommands;
 using Quartz;
 using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
-using TornBot.Bot.Features.Banking;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
@@ -72,6 +70,8 @@ public class ConfigurationCommandModule(
             logger.LogCritical(ex, "Failed to save faction");
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to save faction");
         }
+
+        await SetOcTriggersAsync();
         
         var factionBasic = await client.GetFactionBasicAsync(faction.FactionId);
         if(factionBasic == null) return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to get faction information");
@@ -166,12 +166,6 @@ public class ConfigurationCommandModule(
             return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Oops","Could not get OC module config");
         }
         
-        var dbContext = await contextFactory.CreateDbContextAsync();
-        if ((await dbContext.ApiKeys.AnyAsync(k => k.AccessLevel == AccessLevel.Minimal && k.HasFactionAccess)))
-        {
-            await SetOcTriggersAsync();
-        }
-        
         return new ConfigurationMenuBuilder()
             .AddEnableModuleMenu("oc_enabled", ocConfig.State)
             .AddRequiredRolesMenu("oc_allowed_roles", ocConfig.AllowedRoleIds)
@@ -201,7 +195,46 @@ public class ConfigurationCommandModule(
                     .WithMaxValues(1)
                     .WithDefaultValues(ocConfig.NotificationChannelId.HasValue ? [ocConfig.NotificationChannelId!.Value] : null));
     }
+
+    [SubSlashCommand("retaliation", "set up the retaliation module")]
+    public async Task<InteractionMessageProperties> ConfigureRetaliation()
+    {
+        var config = await moduleConfigRepository.GetRetalModuleConfigByGuildId(Context.Guild!.Id);
+
+        if (config == null)
+        {
+            logger.LogWarning("Retal module config not found");
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Oops, something went wrong");
+        }
+        
+        return new ConfigurationMenuBuilder()
+            .AddEnableModuleMenu("retal_enabled", config!.State)
+            .Build()
+            .AddComponents(
+                new TextDisplayProperties("Retal notification role"),
+                new RoleMenuProperties("retal_notification_role")
+                    .WithPlaceholder("Select role for retal notifications")
+                    .WithMinValues(0)
+                    .WithMaxValues(1)
+                    .WithDefaultValues(config.NotificationRoleId.HasValue ? [config.NotificationRoleId!.Value] : null),
+                new TextDisplayProperties("Retal notification channel"),
+                new ChannelMenuProperties("retal_notification_channel")
+                    .WithPlaceholder("Select channel for retal notifications")
+                    .WithMinValues(0)
+                    .WithMaxValues(1)
+                    .WithDefaultValues(config.NotificationChannelId.HasValue
+                        ? [config.NotificationChannelId!.Value]
+                        : null)
+            );
+    }
     
+    [SubSlashCommand("notifications", "set up the background tasks for notifications")]
+    public async Task<InteractionMessageProperties> ConfigureNotifications()
+    {
+        await SetOcTriggersAsync();
+        return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", "Background tasks set up");
+    }
+
     private async Task SetOcTriggersAsync()
     {
         var scheduler = await schedulerFactory.GetScheduler();

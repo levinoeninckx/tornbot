@@ -8,5 +8,6 @@ public class Faction
     public HashSet<ApiKey> ApiKeys { get; set; } = [];
     public HashSet<ModuleConfig> ModuleConfigs { get; set; } = [];
     public HashSet<OrganizedCrime> OrganizedCrimes { get; set; } = [];
+    public List<RetalOpportunity> TrackedAttacks { get; set; } = [];
     public DateTime CreatedAt { get; set; }
 }

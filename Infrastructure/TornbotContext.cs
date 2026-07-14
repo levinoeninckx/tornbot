@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 
 namespace TornBot.Bot.Infrastructure;
@@ -9,6 +10,7 @@ public class TornbotContext(DbContextOptions<TornbotContext> options) : DbContex
     public DbSet<ApiKey> ApiKeys { get; set; }
     public DbSet<ModuleConfig> ModuleConfigs { get; set; }
     public DbSet<OrganizedCrime> OrganizedCrimes { get; set; }
+    public DbSet<RetalOpportunity> TrackedAttacks { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ApiKey>()

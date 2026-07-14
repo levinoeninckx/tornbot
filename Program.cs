@@ -11,11 +11,11 @@ using NetCord.Hosting.Services.ApplicationCommands;
 using NetCord.Hosting.Services.ComponentInteractions;
 using NetCord.Services.ComponentInteractions;
 using Quartz;
-using Quartz.Logging;
-using TornBot.Bot.Features.OrganizedCrime;
 using TornBot.Bot.Features.OrganizedCrime.Jobs;
+using TornBot.Bot.Features.Retaliation;
 using TornBot.Bot.Features.Verification;
 using TornBot.Bot.Infrastructure;
+using TornBot.Bot.Infrastructure.FFScouter;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
 
@@ -34,24 +34,30 @@ if (string.IsNullOrWhiteSpace(connectionString)) throw new InvalidOperationExcep
 
 builder.Services.AddDbContextFactory<TornbotContext>(options => options.UseNpgsql(connectionString));
 
-var discordBotToken = builder.Configuration["Discord:Token"];
-
-if(discordBotToken == null) throw new InvalidOperationException("Discord bot token is not set");
-
 builder.Services.AddQuartz(q =>
 {
     q.UseInMemoryStore();
     q.UseSimpleTypeLoader();
-    q.UseDefaultThreadPool(p => p.MaxConcurrency = 30);
+    q.UseDefaultThreadPool(p => p.MaxConcurrency = 10);
     
     q.AddJob<PollOrganizedCrimesData>(jobKey: new JobKey("GetNewCrimes", "OC"), x =>
     {
-        x.StoreDurably(true);
+        x.StoreDurably();
     });
+    
+    q.ScheduleJob<GetIncomingAttacks>(trigger => trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
+    q.ScheduleJob<GetOutgoingAttacks>(trigger => trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
+    q.ScheduleJob<CheckExpiredRetals>(trigger => trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
 });
+
+// Job registrations
 builder.Services.AddTransient<PollOrganizedCrimesData>();
 
 builder.Services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
+
+// Netcord
+var discordBotToken = builder.Configuration["Discord:Token"];
+if(discordBotToken == null) throw new InvalidOperationException("Discord bot token is not set");
 
 builder.Services
     .AddDiscordGateway(options =>
@@ -74,6 +80,8 @@ builder.Services.AddHttpClient<TornApiClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.torn.com/v2/");
 });
+builder.Services.AddHttpClient<AttackService>(client => client.BaseAddress = new Uri("https://api.torn.com/v2/faction/attacksfull/"));
+builder.Services.AddHttpClient<FfScouterClient>(client => client.BaseAddress = new Uri("https://ffscouter.com/api/v1/"));
 
 // Set DI services
 builder.Services.AddTransient<ApiKeyService>();

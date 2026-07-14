@@ -13,4 +13,9 @@ public class ApiKey(int tornPlayerId, string key, AccessLevel accessLevel)
     public bool HasCompanyAccess { get; set; } = false;
     public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
     public DateTime? LastUsed { get; private set; } = null;
+
+    public override string ToString()
+    {
+        return Key;
+    }
 }

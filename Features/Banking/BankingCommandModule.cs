@@ -41,7 +41,7 @@ public class BankingCommandModule(TornApiClient client, ILogger<BankingCommandMo
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
         }
 
-        var memberBalance = await client.GetMemberFactionBalanceByIdAsync(user.Id);
+        var memberBalance = await client.GetMemberFactionBalanceByIdAsync(Context.Guild!.Id ,user.Id);
         if (memberBalance == null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Something went wrong while processing your request. Please try again later.");
@@ -65,7 +65,7 @@ public class BankingCommandModule(TornApiClient client, ILogger<BankingCommandMo
     [SubSlashCommand("balance", "show your current faction bank balance")]
     public async Task<InteractionMessageProperties> Showbalance()
     {
-        var balance = await client.GetMemberFactionBalanceByIdAsync(Context.User.Id);
+        var balance = await client.GetMemberFactionBalanceByIdAsync(Context.Guild!.Id, Context.User.Id);
         if (balance == null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Something went wrong while processing your request. Please try again later.");

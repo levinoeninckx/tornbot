@@ -1,8 +1,7 @@
-using System;
 using System.Text.Json.Serialization;
 using FactionBot.Features.Wars;
 
-namespace FactionBot.Infrastructure.TornApi.Models;
+namespace TornBot.Bot.Infrastructure.TornApi.Models;
 
 public class FactionMembersResponse
 {
