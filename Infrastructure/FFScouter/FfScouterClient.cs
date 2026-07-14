@@ -13,4 +13,17 @@ public class FfScouterClient(HttpClient client, ApiKeyService keyService)
 
         return playerStats?[0];
     }
+
+    public async Task<bool> IsApiKeyValid(string apiKey)
+    {
+        try
+        {
+            var response = await client.GetFromJsonAsync<ApiKey>($"check-key?key={apiKey}");
+            return response is { IsRegistered: true };
+        }
+        catch(Exception)
+        {
+            return false;
+        }
+    }
 }

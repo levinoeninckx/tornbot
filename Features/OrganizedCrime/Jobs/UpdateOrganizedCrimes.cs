@@ -13,41 +13,38 @@ using TornBot.Bot.Infrastructure.TornApi.Models;
 
 namespace TornBot.Bot.Features.OrganizedCrime.Jobs;
 
-public class PollOrganizedCrimesData(TornApiClient client, IDbContextFactory<TornbotContext> contextFactory, ModuleConfigRepository repository, RestClient restClient, ILogger<PollOrganizedCrimesData> logger) : IJob
+public class UpdateOrganizedCrimes(
+    TornApiClient client,
+    IDbContextFactory<TornbotContext> contextFactory,
+    ModuleConfigRepository repository,
+    RestClient restClient,
+    ILogger<UpdateOrganizedCrimes> logger) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
     {
-        if (context.RefireCount > 10)
-        {
-            logger.LogWarning("GetNewCrimesJob has been refired more than 10 times");
-            return;
-        }
+        await using var dbContext = await contextFactory.CreateDbContextAsync();
+        var factions = await dbContext.Factions
+            .Include(f => f.OrganizedCrimes)
+            .ToListAsync();
+        
+        foreach(var faction in factions){
+            var config = await repository.GetOrganizedCrimeModuleConfigByGuildId(faction.GuildId);
 
-        try
-        {
-            var guildId = Convert.ToUInt64(context.MergedJobDataMap.GetString("guildId"));
-            var config = await repository.GetOrganizedCrimeModuleConfigByGuildId(guildId);
-
-            if (ValidateConfig(config, guildId)) return;
-
-            await using var dbContext = await contextFactory.CreateDbContextAsync();
-            var faction = await dbContext.Factions
-                .Include(f => f.OrganizedCrimes)
-                .SingleOrDefaultAsync(f => f.GuildId == guildId);
-
-            if (faction == null) return;
-
+            if (ValidateConfig(config, faction.GuildId)) return;
+            
             var crimes = await client.GetAllFactionCrimesAsync();
 
             await ProcessNewCrimes(faction, crimes, config!);
             await ProcessExistingCrimes(faction, crimes, config!);
-
+        }
+        
+        try
+        {
             await dbContext.SaveChangesAsync();
         }
         catch (Exception e)
         {
             logger.LogError(e, "Error getting new crimes");
-            throw new JobExecutionException(cause: e, refireImmediately: true);
         }
     }
 
@@ -122,11 +119,6 @@ public class PollOrganizedCrimesData(TornApiClient client, IDbContextFactory<Tor
         if (config.NotificationChannelId == null)
         {
             logger.LogWarning($"No notification channel id found for guild: {guildId}");
-            return true;
-        }
-            
-        if (config.NotificationRoleId == null)
-        {
             return true;
         }
 

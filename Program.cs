@@ -40,18 +40,14 @@ builder.Services.AddQuartz(q =>
     q.UseSimpleTypeLoader();
     q.UseDefaultThreadPool(p => p.MaxConcurrency = 10);
     
-    q.AddJob<PollOrganizedCrimesData>(jobKey: new JobKey("GetNewCrimes", "OC"), x =>
-    {
-        x.StoreDurably();
-    });
-    
+    q.ScheduleJob<UpdateOrganizedCrimes>(t => t.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
     q.ScheduleJob<GetIncomingAttacks>(trigger => trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
     q.ScheduleJob<GetOutgoingAttacks>(trigger => trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
     q.ScheduleJob<CheckExpiredRetals>(trigger => trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
 });
 
 // Job registrations
-builder.Services.AddTransient<PollOrganizedCrimesData>();
+builder.Services.AddTransient<UpdateOrganizedCrimes>();
 
 builder.Services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
 
