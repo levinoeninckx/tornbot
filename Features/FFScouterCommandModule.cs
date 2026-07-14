@@ -31,13 +31,18 @@ public class FfScouterCommandModule(TornApiClient client, FfScouterClient ffClie
         try
         {
             await using var context = await contextFactory.CreateDbContextAsync();
-            var faction = await context.Factions.SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+            var faction = await context.Factions
+                .Include(faction => faction.ApiKeys)
+                .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
 
             if (faction == null)
             {
                 return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Faction not registered");
             }
-
+            
+            if (faction.ApiKeys.Any(k => k.Key == key))
+                return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Key already registered");
+            
             faction.ApiKeys.Add(apiKey);
 
             await context.SaveChangesAsync();
