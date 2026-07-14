@@ -31,6 +31,7 @@ public class ModuleConfigRepository(IDbContextFactory<TornbotContext> contextFac
     
     private async Task<T?> GetModuleConfigByGuildId<T>(ulong guildId, Module module) where T : class
     {
+        // TODO: fix this class and method
         await using var context = await contextFactory.CreateDbContextAsync();
         var faction = await context.Factions
             .Include(faction => faction.ModuleConfigs)

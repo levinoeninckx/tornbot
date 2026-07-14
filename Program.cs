@@ -44,16 +44,14 @@ builder.Services.AddQuartz(q =>
     {
         x.StoreDurably();
     });
-    q.AddJob<GetIncomingAttacks>(x => x.StoreDurably());
-    q.AddJob<GetOutgoingAttacks>(x => x.StoreDurably());
-    q.AddJob<CheckExpiredRetals>(x => x.StoreDurably());
+    
+    q.ScheduleJob<GetIncomingAttacks>(trigger => trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
+    q.ScheduleJob<GetOutgoingAttacks>(trigger => trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
+    q.ScheduleJob<CheckExpiredRetals>(trigger => trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
 });
 
 // Job registrations
 builder.Services.AddTransient<PollOrganizedCrimesData>();
-builder.Services.AddTransient<GetIncomingAttacks>();
-builder.Services.AddTransient<GetOutgoingAttacks>();
-builder.Services.AddTransient<CheckExpiredRetals>();
 
 builder.Services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
 

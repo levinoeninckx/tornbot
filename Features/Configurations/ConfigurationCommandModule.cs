@@ -196,27 +196,43 @@ public class ConfigurationCommandModule(
                     .WithDefaultValues(ocConfig.NotificationChannelId.HasValue ? [ocConfig.NotificationChannelId!.Value] : null));
     }
 
+    [SubSlashCommand("retaliation", "set up the retaliation module")]
+    public async Task<InteractionMessageProperties> ConfigureRetaliation()
+    {
+        var config = await moduleConfigRepository.GetRetalModuleConfigByGuildId(Context.Guild!.Id);
+
+        if (config == null)
+        {
+            logger.LogWarning("Retal module config not found");
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Oops, something went wrong");
+        }
+        
+        return new ConfigurationMenuBuilder()
+            .AddEnableModuleMenu("retal_enabled", config!.State)
+            .Build()
+            .AddComponents(
+                new TextDisplayProperties("OC notification role"),
+                new RoleMenuProperties("oc_notification_role")
+                    .WithPlaceholder("Select role for OC notifications")
+                    .WithMinValues(0)
+                    .WithMaxValues(1)
+                    .WithDefaultValues(config.NotificationRoleId.HasValue ? [config.NotificationRoleId!.Value] : null),
+                new TextDisplayProperties("OC notification channel"),
+                new ChannelMenuProperties("oc_notification_channel")
+                    .WithPlaceholder("Select channel for OC notifications")
+                    .WithMinValues(0)
+                    .WithMaxValues(1)
+                    .WithDefaultValues(config.NotificationChannelId.HasValue
+                        ? [config.NotificationChannelId!.Value]
+                        : null)
+            );
+    }
+    
     [SubSlashCommand("notifications", "set up the background tasks for notifications")]
     public async Task<InteractionMessageProperties> ConfigureNotifications()
     {
         await SetOcTriggersAsync();
         return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", "Background tasks set up");
-    }
-    
-    [SubSlashCommand("retal", "configure the retailed module")]
-    public async Task<InteractionMessageProperties> ConfigureRetail()
-    {
-        await SetRetalTriggersAsync();
-        return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", "Retail module configured");
-    }
-
-    private async Task SetRetalTriggersAsync()
-    {
-        var scheduler = await schedulerFactory.GetScheduler();
-
-        var trigger = await scheduler.GetTrigger(new TriggerKey($"retal-trigger-{Context.Guild!.Id}"));
-        if (trigger != null)
-            return;
     }
 
     private async Task SetOcTriggersAsync()

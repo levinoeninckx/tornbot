@@ -23,22 +23,25 @@ public class CheckExpiredRetals(IDbContextFactory<TornbotContext> contextFactory
         {
             var config = await repository.GetRetalModuleConfigByGuildId(faction.GuildId);
             var expiredAttacks = faction.TrackedAttacks.Where(a =>
-                a.Timestamp - DateTime.UtcNow > TimeSpan.FromMinutes(5)).ToImmutableList();
-            foreach (var expiredAttack in expiredAttacks)
-            {
-                await client.ModifyMessageAsync(config!.ChannelId!.Value, expiredAttack.MessageId, messageProperties =>
+                DateTime.UtcNow - a.Timestamp > TimeSpan.FromMinutes(5)).ToImmutableList();
+
+            await Parallel.ForEachAsync(expiredAttacks, new ParallelOptions { MaxDegreeOfParallelism = 5 },
+                async (expiredAttack, ct) =>
                 {
-                    messageProperties.Embeds =
-                    [
-                        new EmbedProperties
+                    await client.ModifyMessageAsync(config!.NotificationChannelId!.Value, expiredAttack.MessageId,
+                        messageProperties =>
                         {
-                            Title = "Retal Expired",
-                            Color = new Color(255, 0, 0),
-                        }
-                    ];
-                    messageProperties.Components = [];
+                            messageProperties.Embeds =
+                            [
+                                new EmbedProperties
+                                {
+                                    Title = "Retal Expired",
+                                    Color = new Color(255, 0, 0),
+                                }
+                            ];
+                            messageProperties.Components = [];
+                        }, cancellationToken: ct);
                 });
-            }
             
             var expiredAttacksHashSet = expiredAttacks.Select(e => e.Id).ToHashSet();
             faction.TrackedAttacks.RemoveAll(a => expiredAttacksHashSet.Contains(a.Id));

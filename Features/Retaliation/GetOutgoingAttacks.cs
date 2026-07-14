@@ -28,14 +28,11 @@ public class GetOutgoingAttacks(AttackService attackService, IDbContextFactory<T
             {
                 if(opportunityDict.Keys.Contains(attack.Defender.Id))
                 {
-                    //TODO: retal claimed
-                    //TODO: modify message to say retal claimed by <player> -> amount of respect gained, maybe link to attack log
-                    //TODO: delete tracked attack
                     var opportunity = opportunityDict[attack.Defender.Id];
 
                     var attackerBasic = await tornClient.GetUserProfileById(attack.Attacker.Id);
                     if (attackerBasic == null) continue;
-                    await client.ModifyMessageAsync(config!.ChannelId!.Value, opportunity.MessageId,
+                    await client.ModifyMessageAsync(config!.NotificationChannelId!.Value, opportunity.MessageId,
                         messageProperties =>
                         {
                             messageProperties.Embeds =

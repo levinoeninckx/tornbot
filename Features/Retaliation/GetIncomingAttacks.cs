@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NetCord.Rest;
 using Quartz;
+using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Features.Retaliation.Models;
 using TornBot.Bot.Infrastructure;
@@ -29,7 +30,6 @@ public class GetIncomingAttacks(
         await using var dbContext = await contextFactory.CreateDbContextAsync();
 
         var factions = await dbContext.Factions
-            .AsNoTracking()
             .Include(f => f.TrackedAttacks)
             .ToListAsync();
 
@@ -39,7 +39,7 @@ public class GetIncomingAttacks(
             var config = await repository.GetRetalModuleConfigByGuildId(guildId);
             if (ValidateConfig(config, guildId)) continue;
 
-            if (!config!.Enabled)
+            if (config!.State == ModuleState.Disabled)
             {
                 logger.LogWarning("Retal module is disabled for guild {guildId}", guildId);
                 continue;
@@ -48,8 +48,10 @@ public class GetIncomingAttacks(
             var trackedAttacks = faction.TrackedAttacks.Select(a => a.AttackId).ToImmutableHashSet();
             var attacks = await attackService.GetIncomingAttacks(guildId);
         
-            foreach (var attack in attacks.Where(a => !trackedAttacks.Contains((ulong)a.Id)).Where(a => (a.Ended - DateTime.UtcNow < TimeSpan.FromMinutes(5))))
+            foreach (var attack in attacks.Where(a => !trackedAttacks.Contains((ulong)a.Id)).Where(a => (DateTime.UtcNow - a.Ended < TimeSpan.FromMinutes(5))))
             {
+                if (attack.Attacker == null)
+                    continue;
                 var attackerBasic = await client.GetUserProfileById(attack.Attacker.Id);
                 var defenderBasic = await client.GetUserProfileById(attack.Defender.Id);
                 if (attackerBasic == null || defenderBasic == null)
@@ -63,7 +65,7 @@ public class GetIncomingAttacks(
                 var playerStats = await ffClient.GetPlayerStats(attackerBasic.Id);
                 var msg = CreateRetalMessage(attack.Result, attackerBasic, defenderBasic, playerStats);
                 
-                var message = await restClient.SendMessageAsync(config.ChannelId!.Value, msg);
+                var message = await restClient.SendMessageAsync(config.NotificationChannelId!.Value, msg);
                 var trackedAttack = new RetalOpportunity
                 {
                     AttackId = (ulong)attack.Id,
@@ -103,7 +105,7 @@ public class GetIncomingAttacks(
             return true;
         }
 
-        if (!config.ChannelId.HasValue)
+        if (!config.NotificationChannelId.HasValue)
         {
             logger.LogWarning("No retal channel id set for retal module for guild {guildId}", guildId);
             return true;
