@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using TornBot.Bot.Infrastructure.JsonConverters;
 
 namespace TornBot.Bot.Infrastructure.FFScouter.Models;
 
@@ -15,6 +16,7 @@ public class PlayerStats
     [JsonPropertyName("bss_public")]
     public int? BssPublic { get; set; }
     [JsonPropertyName("last_updated")]
+    [JsonConverter(typeof(UnixTimestampConverter))]
     public DateTime? LastUpdated { get; set; }
     [JsonPropertyName("source")]
     public string Source { get; set; } = "";
