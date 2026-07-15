@@ -33,18 +33,19 @@ public class GuildUserAddHandler(VerificationService verificationService, IDbCon
             return;
         }
 
-        var verifiedUser = await verificationService.VerifyGuildUserAsync(guildUser);
-        if (verifiedUser == null)
+        var userProfile = await verificationService.VerifyGuildUserAsync(guildUser);
+        if (userProfile == null)
         {
             await client
                 .SendMessageAsync(config.AutoVerificationChannelId,
-                    MessageFactory.CreateErrorMessage<MessageProperties>("Failed to verify automatically, please use /verify"));
+                    MessageFactory
+                        .CreateDefaultMessage<MessageProperties>("Verification failed","Failed to verify automatically, make sure you have joined the official Torn discord then use the /verify command"));
             return;
         }
         
         await client
             .SendMessageAsync(config.AutoVerificationChannelId,
                 MessageFactory.CreateDefaultMessage<MessageProperties>("User verified",
-                    $"{guildUser.Nickname} has been verified as {verifiedUser.Nickname}"));
+                    $"{guildUser.Nickname} has been verified as [{userProfile.Name}]({ShortUrlHelper.GetProfileUrl(userProfile.Id)})"));
     }
 }

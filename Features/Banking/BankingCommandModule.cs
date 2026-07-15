@@ -80,7 +80,7 @@ public class BankingCommandModule(TornApiClient client, ILogger<BankingCommandMo
         var embed = new EmbedProperties()
         {
             Title = "Banking request",
-            Description = $"<@&{bankerRoleId}> [{requestee.Name}](https://tcy.sh/p/{requestee.Id}) requested to withdraw some funds from the faction bank",
+            Description = $"<@&{bankerRoleId}> [{requestee.Name}]({ShortUrlHelper.GetProfileUrl(requestee.Id)}) requested to withdraw some funds from the faction bank",
         };
 
         var acceptButton = new ButtonProperties($"accept_request:{requesteeId}:{amount}", "Accept", ButtonStyle.Success);

@@ -10,6 +10,7 @@ using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Infrastructure.TornApi.Models;
+using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.OrganizedCrime.Jobs;
 
@@ -174,7 +175,7 @@ public class UpdateOrganizedCrimes(
                 continue;
             }
             
-            playerStringBuilder.AppendLine($"[{player.Name}](https://tcy.sh/p/{player.Id})");
+            playerStringBuilder.AppendLine($"[{player.Name}]({ShortUrlHelper.GetProfileUrl(player.Id)})");
         }
 
         var rewardsStringBuilder = new StringBuilder();

@@ -12,6 +12,7 @@ using TornBot.Bot.Infrastructure.FFScouter;
 using TornBot.Bot.Infrastructure.FFScouter.Models;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Infrastructure.TornApi.Models;
+using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Retaliation;
 
@@ -118,7 +119,8 @@ public class GetIncomingAttacks(
     {
         var stringBuilder = new StringBuilder();
         
-        stringBuilder.AppendLine($"{attacker.Name} {result.ToString().ToLower()} {defender.Name}");
+        stringBuilder
+            .AppendLine($"[{attacker.Name}]({ShortUrlHelper.GetProfileUrl(attacker.Id)}) {result.ToString().ToLower()} [{defender.Name}]({ShortUrlHelper.GetProfileUrl(defender.Id)})");
 
         if (attackerStats != null)
         {
@@ -151,8 +153,8 @@ public class GetIncomingAttacks(
             Components = [
                 new ActionRowProperties
                 {
-                    new LinkButtonProperties("https://torn.com/loader.php?XID=" + attacker.Id, "Attack"),
-                    new LinkButtonProperties("https://torn.com/profiles.php?XID=" + attacker.Id, "Profile")
+                    new LinkButtonProperties(ShortUrlHelper.GetAttackUrl(attacker.Id).ToString(), "Attack"),
+                    new LinkButtonProperties(ShortUrlHelper.GetProfileUrl(attacker.Id).ToString(), "Profile")
                 }
             ]
         };

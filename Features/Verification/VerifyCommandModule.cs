@@ -47,9 +47,9 @@ public class VerifyCommandModule(TornApiClient client, VerificationService verif
             };
         }
         
-        var verifiedUser = await verificationService.VerifyGuildUserAsync(guildUser);
+        var userProfile = await verificationService.VerifyGuildUserAsync(guildUser);
 
-        if (verifiedUser == null)
+        if (userProfile == null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to verify user, try again later.");
         }
@@ -62,7 +62,7 @@ public class VerifyCommandModule(TornApiClient client, VerificationService verif
                 {
                     Title = "Verified",
                     Description =
-                        $"{guildUser.Username} has been verified as [{tornNickname}](https://tcy.sh/p/{tornUserProfile.Id})"
+                        $"{guildUser.Username} has been verified as [{tornNickname}]({ShortUrlHelper.GetProfileUrl(tornUserProfile.Id)})"
                 }
             ],
         };
