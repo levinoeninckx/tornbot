@@ -7,12 +7,13 @@ using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
+using TornBot.Bot.Infrastructure.TornApi.Models;
 
 namespace TornBot.Bot.Features.Verification;
 
 public class VerificationService(IDbContextFactory<TornbotContext> contextFactory, TornApiClient client, RestClient restClient, ILogger<VerificationService> logger)
 {
-    public async Task<GuildUser?> VerifyGuildUserAsync(GuildUser guildUser)
+    public async Task<Profile?> VerifyGuildUserAsync(GuildUser guildUser)
     {
         var userId = guildUser.Id;
         var guildId = guildUser.GuildId;
@@ -52,12 +53,12 @@ public class VerificationService(IDbContextFactory<TornbotContext> contextFactor
             roleIds.AddRange(config.NonFactionRoleIds);
         }
 
-        var verifiedUser = await restClient.ModifyGuildUserAsync(guildId, userId, properties => 
+        await restClient.ModifyGuildUserAsync(guildId, userId, properties => 
         {
             properties.WithNickname(nickname);
             properties.WithRoleIds(roleIds.Distinct());
         });
 
-        return verifiedUser;
+        return profile;
     }
 }

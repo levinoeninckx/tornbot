@@ -23,11 +23,11 @@ public class BankingButtonModule(TornApiClient client) : ComponentInteractionMod
         var stringBuilder = new StringBuilder();
 
         stringBuilder.AppendLine(
-            $"[{requestee.Name}](https://tcy.sh/p/{requestee.Id}) requested {amount.ToString("C0", CultureInfo.GetCultureInfo("en-US"))} from the faction bank");
+            $"[{requestee.Name}]({ShortUrlHelper.GetProfileUrl(requestee.Id)}) requested {amount.ToString("C0", CultureInfo.GetCultureInfo("en-US"))} from the faction bank");
         stringBuilder.AppendLine("### Clicky");
         stringBuilder.AppendLine($"[link](https://tcy.sh/s/bg?u={requestee.Id}&a={amount})");
         
-        var dmMessage = new MessageProperties()
+        var dmMessage = new MessageProperties
         {
             Embeds =
             [
@@ -50,7 +50,7 @@ public class BankingButtonModule(TornApiClient client) : ComponentInteractionMod
                 new EmbedProperties
                 {
                     Title = "Banking request accepted",
-                    Description = $"[{requestee.Name}](https://tcy.sh/p/{requestee.Id})'s request was accepted by [{acceptorUser.Name}](https://tcy.sh/p/{acceptorUser.Id})",
+                    Description = $"[{requestee.Name}]({ShortUrlHelper.GetProfileUrl(requestee.Id)})'s request was accepted by [{acceptorUser.Name}]({ShortUrlHelper.GetProfileUrl(acceptorUser.Id)})",
                 },
             ];
             message.Components = [new ActionRowProperties { Components = [confirmButton, new ButtonProperties($"cancel_request:{requesteeId}", "Cancel", ButtonStyle.Danger)] }];
@@ -82,7 +82,7 @@ public class BankingButtonModule(TornApiClient client) : ComponentInteractionMod
         var embed = new EmbedProperties
         {
             Title = "Banking request cancelled",
-            Description = $"[{requestee.Name}](https://tcy.sh/p/{requestee.Id})'s request was cancelled by [{decliner.Name}](https://tcy.sh/p/{decliner.Id})",
+            Description = $"[{requestee.Name}]({ShortUrlHelper.GetProfileUrl(requestee.Id)})'s request was cancelled by [{decliner.Name}]({ShortUrlHelper.GetProfileUrl(decliner.Id)})",
         };
 
         await Context.Message.ModifyAsync(message => 
@@ -112,7 +112,7 @@ public class BankingButtonModule(TornApiClient client) : ComponentInteractionMod
         var embed = new EmbedProperties
         {
             Title = "Banking request confirmed",
-            Description = $"[{requestee.Name}](https://tcy.sh/p/{requestee.Id})'s request was confirmed by [{confirmer.Name}](https://tcy.sh/p/{confirmer.Id})",
+            Description = $"[{requestee.Name}]({ShortUrlHelper.GetProfileUrl(requestee.Id)})'s request was confirmed by [{confirmer.Name}]({ShortUrlHelper.GetProfileUrl(confirmer.Id)})",
         };
         
         var requesteeUser = await Context.Guild!.GetUserAsync(Convert.ToUInt64(requesteeId));
