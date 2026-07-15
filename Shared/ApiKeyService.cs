@@ -64,4 +64,10 @@ public class ApiKeyService(IDbContextFactory<TornbotContext> contextFactory, ILo
         await using var context = await contextFactory.CreateDbContextAsync();
         return await context.ApiKeys.FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.FfScouter);
     }
+    
+    public async Task<ApiKey?> GetTornStatsApiKeyAsync()
+    {
+        await using var context = await contextFactory.CreateDbContextAsync();
+        return await context.ApiKeys.FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.TornStats);
+    }
 }

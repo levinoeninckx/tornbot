@@ -17,6 +17,7 @@ using TornBot.Bot.Features.Verification;
 using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.FFScouter;
 using TornBot.Bot.Infrastructure.TornApi;
+using TornBot.Bot.Infrastructure.TornStats;
 using TornBot.Bot.Shared;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -78,6 +79,7 @@ builder.Services.AddHttpClient<TornApiClient>(client =>
 });
 builder.Services.AddHttpClient<AttackService>(client => client.BaseAddress = new Uri("https://api.torn.com/v2/faction/attacksfull/"));
 builder.Services.AddHttpClient<FfScouterClient>(client => client.BaseAddress = new Uri("https://ffscouter.com/api/v1/"));
+builder.Services.AddHttpClient<TornStatClient>(client => client.BaseAddress = new Uri("https://www.tornstats.com/api/v2/"));
 
 // Set DI services
 builder.Services.AddTransient<ApiKeyService>();
@@ -85,6 +87,7 @@ builder.Services.AddTransient<VerificationService>();
 builder.Services.AddTransient<ModuleConfigRepository>();
 builder.Services.AddSingleton<ChannelService>();
 builder.Services.AddSingleton<FactionService>();
+builder.Services.AddTransient<BattleStatService>();
 
 // Set backgroundservices
 builder.Services.AddHostedService<ChainService>();

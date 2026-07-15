@@ -6,5 +6,6 @@ public enum AccessLevel
     Minimal = 2,
     LimitedAccess = 3,
     Full = 4,
-    FfScouter = 10
+    FfScouter = 10,
+    TornStats = 20,
 }
