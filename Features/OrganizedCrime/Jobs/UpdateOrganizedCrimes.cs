@@ -211,7 +211,7 @@ public class UpdateOrganizedCrimes(
                         new() { Name = "Difficulty", Value = crime.Difficulty.ToString() },
                         new() { Name = "Duration", Value = $"{duration.Days} days and {duration.Hours} hours" },
                         new(){ Name = "Players", Value = playerStringBuilder.ToString()},
-                        new() { Name = "Success chance", Value = $"{CalculateSuccessChance(crime.Slots.Select(c => c.Cpr))}%"},
+                        new() { Name = "Success chance", Value = $"{CalculateSuccessChance(crime.Slots.Select(c => c.Cpr)).ToString("F2", new CultureInfo("en-US"))}%"},
                         new (){ Name = "Rewards", Value = rewardsStringBuilder.ToString()}
                     ]
                 }
@@ -237,15 +237,8 @@ public class UpdateOrganizedCrimes(
     }
     private static double CalculateSuccessChance(IEnumerable<int> percentages)
     {
-        double totalFailChance = 1.0;
-
-        foreach (var chance in percentages)
-        {
-            double successDecimal = chance / 100.0;
-        
-            totalFailChance *= (1.0 - successDecimal);
-        }
-
-        return (1.0 - totalFailChance) * 100.0;
+        var percentageList = percentages.ToList();
+        var total = percentageList.Sum();
+        return (double)total / percentageList.Count * 100;
     }
 }
