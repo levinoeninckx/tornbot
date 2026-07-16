@@ -131,6 +131,11 @@ public class GetIncomingAttacks(
         stringBuilder.Append('\n');
         
         var faction = await client.GetUserFactionAsync(attacker.Id);
+        stringBuilder.AppendLine("## Player");
+        stringBuilder.AppendLine($"[{attacker.Name}]({ShortUrlHelper.GetProfileUrl(attacker.Id)})");
+        stringBuilder.AppendLine($"Level {attacker.Level}");
+        
+        
         if (faction is not null)
         {
             stringBuilder.AppendLine($"[{faction.Name}]({ShortUrlHelper.GetFactionUrl(faction.Id)})");
@@ -139,8 +144,8 @@ public class GetIncomingAttacks(
         if (battleStat != null)
         {
             stringBuilder.Append('\n');
-            stringBuilder.AppendLine("## Player stats");
-            stringBuilder.AppendLine($"Total Bs: {battleStat.TotalHumanReadable}");
+            stringBuilder.AppendLine("## Battle stats");
+            stringBuilder.AppendLine($"Total: {battleStat.TotalHumanReadable}");
 
             if (battleStat.Details is not null)
             {
