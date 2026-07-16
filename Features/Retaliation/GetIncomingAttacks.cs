@@ -36,28 +36,34 @@ public class GetIncomingAttacks(
 
         foreach (var faction in factions)
         {
-            var guildId = faction.GuildId;
-            var config = await repository.GetRetalModuleConfigByGuildId(guildId);
-            if (ValidateConfig(config, guildId)) continue;
+            var config = await repository.GetRetalModuleConfigByGuildId(faction.GuildId);
+            if (ValidateConfig(config, faction.GuildId)) continue;
 
             if (config!.State == ModuleState.Disabled)
             {
-                logger.LogWarning("Retal module is disabled for guild {guildId}", guildId);
+                logger.LogWarning("Retal module is disabled for guild {guildId}", faction.GuildId);
                 continue;
             }
             
             var trackedAttacks = faction.TrackedAttacks.Select(a => a.AttackId).ToImmutableHashSet();
-            var attacks = await attackService.GetIncomingAttacks(guildId);
+            var attacks = await attackService.GetIncomingAttacks(faction.GuildId);
         
             foreach (var attack in attacks.Where(a => !trackedAttacks.Contains((ulong)a.Id)).Where(a => (DateTime.UtcNow - a.Ended < TimeSpan.FromMinutes(5))))
             {
                 if (attack.Attacker == null)
                     continue;
+                
+                if (attack.Attacker.FactionId == attack.Defender.FactionId)
+                {
+                    logger.LogInformation("Attacker and defender from same faction with Id {factionId}", attack.Attacker.FactionId);
+                    continue;
+                }
+                
                 var attackerBasic = await client.GetUserProfileById(attack.Attacker.Id);
                 var defenderBasic = await client.GetUserProfileById(attack.Defender.Id);
                 if (attackerBasic == null || defenderBasic == null)
                 {
-                    logger.LogWarning($"Something went wrong requesting user info for: {attack.Attacker.Id},{attack.Defender.Id}");  
+                    logger.LogWarning("Something went wrong requesting user info for: {attackerId},{defenderId}", attack.Attacker.Id, attack.Defender.Id);  
                     continue;
                 }
 
@@ -84,7 +90,7 @@ public class GetIncomingAttacks(
         }
         catch (Exception e)
         {
-            logger.LogError(e, "Failed to save retal opportunities");
+            logger.LogCritical(e, "Failed to save retal opportunities");
         }
     }
 
@@ -135,10 +141,14 @@ public class GetIncomingAttacks(
             stringBuilder.Append('\n');
             stringBuilder.AppendLine("## Player stats");
             stringBuilder.AppendLine($"Total Bs: {battleStat.TotalHumanReadable}");
-            stringBuilder.AppendLine($"Strength {battleStat.StrengthHumanReadable}");
-            stringBuilder.AppendLine($"Defense {battleStat.DefenseHumanReadable}");
-            stringBuilder.AppendLine($"Speed {battleStat.SpeedHumanReadable}");
-            stringBuilder.AppendLine($"Dexterity {battleStat.DexterityHumanReadable}");
+
+            if (battleStat.Details is not null)
+            {
+                stringBuilder.AppendLine($"Strength {battleStat.Details.StrengthHumanReadable}");
+                stringBuilder.AppendLine($"Defense {battleStat.Details.DefenseHumanReadable}");
+                stringBuilder.AppendLine($"Speed {battleStat.Details.SpeedHumanReadable}");
+                stringBuilder.AppendLine($"Dexterity {battleStat.Details.DexterityHumanReadable}");
+            }
         }
         else
         {

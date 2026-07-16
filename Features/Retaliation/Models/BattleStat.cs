@@ -2,18 +2,22 @@ using System.Text;
 
 namespace TornBot.Bot.Features.Retaliation.Models;
 
-public class BattleStat(ulong strength, ulong defense, ulong speed, ulong dexterity)
+public class BattleStat
 {
-    public ulong Strength { get; private set; } = strength;
-    public ulong Defense { get; private set; } = defense;
-    public ulong Speed { get; private set; } = speed;
-    public ulong Dexterity { get; private set; } = dexterity; 
-    public ulong Total => Strength + Defense + Speed + Dexterity;
-    public string TotalHumanReadable => FormatValue(Total);
-    public string StrengthHumanReadable => FormatValue(Strength);
-    public string DefenseHumanReadable => FormatValue(Defense);
-    public string SpeedHumanReadable => FormatValue(Speed);
-    public string DexterityHumanReadable => FormatValue(Dexterity);
+    public BattleStatDetails? Details { get; set; }
+    public ulong Estimate { get; private set; }
+
+    public BattleStat(ulong estimate)
+    {
+        Estimate = estimate;
+    }
+    
+    public BattleStat(ulong strength, ulong defense, ulong speed, ulong dexterity)
+    {
+        Details = new BattleStatDetails(strength, defense, speed, dexterity);
+    }
+    
+    public string TotalHumanReadable => Details?.TotalHumanReadable ?? FormatValue(Estimate);
 
     private static string FormatValue(ulong value)
     {
@@ -29,16 +33,13 @@ public class BattleStat(ulong strength, ulong defense, ulong speed, ulong dexter
         return doubleValue.ToString("0");
     }
 
-    public override string ToString()
+    public class BattleStatDetails(ulong strength, ulong defense, ulong speed, ulong dexterity)
     {
-        var stringBuilder = new StringBuilder();
-        
-        stringBuilder.AppendLine($"Total: {TotalHumanReadable}");
-        stringBuilder.AppendLine($"Strength: {StrengthHumanReadable}");
-        stringBuilder.AppendLine($"Defense: {DefenseHumanReadable}");
-        stringBuilder.AppendLine($"Speed: {SpeedHumanReadable}");
-        stringBuilder.AppendLine($"Dexterity: {DexterityHumanReadable}");
-        
-        return stringBuilder.ToString();
+        public ulong Total => strength + defense + speed + dexterity;
+        public string TotalHumanReadable => FormatValue(Total);
+        public string StrengthHumanReadable => FormatValue(strength);
+        public string DefenseHumanReadable => FormatValue(defense);
+        public string SpeedHumanReadable => FormatValue(speed);
+        public string DexterityHumanReadable => FormatValue(dexterity);
     }
 }
