@@ -54,6 +54,8 @@ public class GetOutgoingAttacks(AttackService attackService, IDbContextFactory<T
                         ];
                         messageProperties.Components = [];
                     });
+                
+                faction.TrackedAttacks.Remove(opportunity);
             }
         }
 
