@@ -64,7 +64,7 @@ public class GetIncomingAttacks(
                 if (!IsSuccessfulAttack(attack.Result)) continue;
 
                 var playerStats = await bsService.GetUserBattlestatsById(attackerBasic.Id);
-                var msg = CreateRetalMessage(attack.Result, attackerBasic, defenderBasic, playerStats);
+                var msg = await CreateRetalMessageAsync(attack.Result, attackerBasic, defenderBasic, playerStats);
                 
                 var message = await restClient.SendMessageAsync(config.NotificationChannelId!.Value, msg);
                 var trackedAttack = new RetalOpportunity
@@ -115,15 +115,24 @@ public class GetIncomingAttacks(
         return false;
     }
 
-    private static MessageProperties CreateRetalMessage(AttackResult result, Profile attacker, Profile defender, BattleStat? battleStat)
+    private async Task<MessageProperties> CreateRetalMessageAsync(AttackResult result, Profile attacker, Profile defender, BattleStat? battleStat)
     {
+        // TODO: refactor to be static?
         var stringBuilder = new StringBuilder();
         
         stringBuilder
             .AppendLine($"[{attacker.Name}]({ShortUrlHelper.GetProfileUrl(attacker.Id)}) {result.ToString().ToLower()} [{defender.Name}]({ShortUrlHelper.GetProfileUrl(defender.Id)})");
-
+        stringBuilder.Append('\n');
+        
+        var faction = await client.GetUserFactionAsync(attacker.Id);
+        if (faction is not null)
+        {
+            stringBuilder.AppendLine($"[{faction.Name}]({ShortUrlHelper.GetFactionUrl(faction.Id)})");
+        }
+        
         if (battleStat != null)
         {
+            stringBuilder.Append('\n');
             stringBuilder.AppendLine("## Player stats");
             stringBuilder.AppendLine($"Total Bs: {battleStat.TotalHumanReadable}");
             stringBuilder.AppendLine($"Strength {battleStat.StrengthHumanReadable}");

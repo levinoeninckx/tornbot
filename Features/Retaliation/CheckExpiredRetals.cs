@@ -28,6 +28,7 @@ public class CheckExpiredRetals(IDbContextFactory<TornbotContext> contextFactory
             await Parallel.ForEachAsync(expiredAttacks, new ParallelOptions { MaxDegreeOfParallelism = 5 },
                 async (expiredAttack, ct) =>
                 {
+                    var message = await client.GetMessageAsync(config!.NotificationChannelId!.Value, expiredAttack.MessageId, cancellationToken: ct);
                     await client.ModifyMessageAsync(config!.NotificationChannelId!.Value, expiredAttack.MessageId,
                         messageProperties =>
                         {
@@ -36,6 +37,7 @@ public class CheckExpiredRetals(IDbContextFactory<TornbotContext> contextFactory
                                 new EmbedProperties
                                 {
                                     Title = "Retal Expired",
+                                    Description = message.Embeds[0].Description,
                                     Color = new Color(255, 0, 0),
                                 }
                             ];
