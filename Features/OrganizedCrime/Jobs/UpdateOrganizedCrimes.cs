@@ -240,6 +240,6 @@ public class UpdateOrganizedCrimes(
     {
         var percentageList = percentages.ToList();
         var total = percentageList.Sum();
-        return (double)total / percentageList.Count * 100;
+        return (double)total / (percentageList.Count * 100);
     }
 }

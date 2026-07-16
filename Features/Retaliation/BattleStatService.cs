@@ -20,9 +20,13 @@ public class BattleStatService(FfScouterClient ffClient, TornStatClient tsClient
         if(ffScouterStats is null)
             return null;
 
-        if (ffScouterStats.Spies.Length <= 0)
+        if (ffScouterStats.Spies.Length > 0)
+            return new BattleStat(ffScouterStats.Spies[0].Strength, ffScouterStats.Spies[0].Defense,
+                ffScouterStats.Spies[0].Speed, ffScouterStats.Spies[0].Dexterity);
+        if (ffScouterStats.BsEstimate is null)
             return null;
-        
-        return new BattleStat(ffScouterStats.Spies[0].Strength, ffScouterStats.Spies[0].Defense, ffScouterStats.Spies[0].Speed, ffScouterStats.Spies[0].Dexterity);       
+
+        return new BattleStat(ffScouterStats.BsEstimate.Value);
+
     }
 }
