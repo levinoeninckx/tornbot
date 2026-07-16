@@ -11,6 +11,9 @@ using NetCord.Hosting.Services.ApplicationCommands;
 using NetCord.Hosting.Services.ComponentInteractions;
 using NetCord.Services.ComponentInteractions;
 using Quartz;
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 using TornBot.Bot.Features.OrganizedCrime.Jobs;
 using TornBot.Bot.Features.Retaliation;
 using TornBot.Bot.Features.Verification;
@@ -27,7 +30,25 @@ if (builder.Environment.IsDevelopment())
     builder.Configuration.AddUserSecrets<Program>();
 }
 
-builder.Services.AddLogging();
+
+
+builder.Services.AddSerilog(configure =>
+{
+    configure.WriteTo.Console();
+    
+    var seqApiKey = builder.Configuration["seq:apiKey"];
+
+    if (seqApiKey != null)
+    {
+        var levelSwitch = new LoggingLevelSwitch();
+        configure.MinimumLevel.ControlledBy(levelSwitch);
+        configure.WriteTo.Seq("http://localhost:5341", apiKey: seqApiKey, controlLevelSwitch: levelSwitch);
+    }
+    
+    configure.MinimumLevel.Override("Microsoft.AspNetCore.Hosting", LogEventLevel.Warning);
+    configure.MinimumLevel.Override("Microsoft.AspNetCore.Mvc", LogEventLevel.Warning);
+    configure.MinimumLevel.Override("Microsoft.AspNetCore.Routing", LogEventLevel.Warning);
+});
 
 var connectionString = builder.Configuration["ConnectionStrings:Tornbot"];
 
