@@ -230,7 +230,7 @@ public class UpdateOrganizedCrimes(
                     Fields = [
                         new() { Name = "Crime", Value = crime.Name },
                         new() { Name = "Difficulty", Value = crime.Difficulty.ToString() },
-                        new() { Name = "Success chance", Value = $"{CalculateSuccessChance(crime.Slots.Select(c => c.Cpr))}%"},
+                        new() { Name = "Success chance", Value = $"{CalculateSuccessChance(crime.Slots.Select(c => c.Cpr)).ToString("P2", new CultureInfo("en-US"))}%"}
                     ]
                 }
             ],
