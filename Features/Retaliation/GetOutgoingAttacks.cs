@@ -49,7 +49,7 @@ public class GetOutgoingAttacks(AttackService attackService, IDbContextFactory<T
                             {
                                 Title = $"Retal claimed by {attackerBasic.Name}[{attackerBasic.Id}]",
                                 Description = message.Embeds[0].Description,
-                                Color = new Color(0, 255, 255)
+                                Color = new Color(0, 255, 0)
                             }
                         ];
                         messageProperties.Components = [];
