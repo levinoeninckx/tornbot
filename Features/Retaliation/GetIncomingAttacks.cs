@@ -20,7 +20,7 @@ public class GetIncomingAttacks(
     AttackService attackService,
     IDbContextFactory<TornbotContext> contextFactory,
     TornApiClient client,
-    FfScouterClient ffClient,
+    BattleStatService bsService,
     ModuleConfigRepository repository, 
     RestClient restClient,
     ILogger<GetIncomingAttacks> logger
@@ -62,8 +62,8 @@ public class GetIncomingAttacks(
                 }
 
                 if (!IsSuccessfulAttack(attack.Result)) continue;
-                
-                var playerStats = await ffClient.GetPlayerStats(attackerBasic.Id);
+
+                var playerStats = await bsService.GetUserBattlestatsById(attackerBasic.Id);
                 var msg = CreateRetalMessage(attack.Result, attackerBasic, defenderBasic, playerStats);
                 
                 var message = await restClient.SendMessageAsync(config.NotificationChannelId!.Value, msg);
@@ -115,26 +115,21 @@ public class GetIncomingAttacks(
         return false;
     }
 
-    private static MessageProperties CreateRetalMessage(AttackResult result, Profile attacker, Profile defender, PlayerStats? attackerStats)
+    private static MessageProperties CreateRetalMessage(AttackResult result, Profile attacker, Profile defender, BattleStat? battleStat)
     {
         var stringBuilder = new StringBuilder();
         
         stringBuilder
             .AppendLine($"[{attacker.Name}]({ShortUrlHelper.GetProfileUrl(attacker.Id)}) {result.ToString().ToLower()} [{defender.Name}]({ShortUrlHelper.GetProfileUrl(defender.Id)})");
 
-        if (attackerStats != null)
+        if (battleStat != null)
         {
-            stringBuilder.AppendLine("## Attacker stats");
-            stringBuilder.AppendLine($"Total Bs: {attackerStats.BsEstimateHuman}");
-        
-            if (attackerStats.Spies.Length > 0)
-            {
-                stringBuilder.AppendLine("## Spies");
-                stringBuilder.AppendLine($"Strength: {attackerStats.Spies[0].Strength}");
-                stringBuilder.AppendLine($"Defense: {attackerStats.Spies[0].Defense}");
-                stringBuilder.AppendLine($"Speed: {attackerStats.Spies[0].Speed}");
-                stringBuilder.AppendLine($"Dexterity: {attackerStats.Spies[0].Dexterity}");
-            }
+            stringBuilder.AppendLine("## Player stats");
+            stringBuilder.AppendLine($"Total Bs: {battleStat.TotalHumanReadable}");
+            stringBuilder.AppendLine($"Strength {battleStat.StrengthHumanReadable}");
+            stringBuilder.AppendLine($"Defense {battleStat.DefenseHumanReadable}");
+            stringBuilder.AppendLine($"Speed {battleStat.SpeedHumanReadable}");
+            stringBuilder.AppendLine($"Dexterity {battleStat.DexterityHumanReadable}");
         }
         else
         {

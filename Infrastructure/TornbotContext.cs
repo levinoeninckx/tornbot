@@ -17,7 +17,7 @@ public class TornbotContext(DbContextOptions<TornbotContext> options) : DbContex
             .HasKey(x => x.Id);
         modelBuilder.Entity<ApiKey>()
             .Property(x => x.Key)
-            .HasMaxLength(16)
+            .HasMaxLength(30)
             .IsRequired();
         modelBuilder.Entity<ApiKey>()
             .Property(x => x.CreatedAt)
