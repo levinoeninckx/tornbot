@@ -128,23 +128,20 @@ public class GetIncomingAttacks(
         
         stringBuilder
             .AppendLine($"[{attacker.Name}]({ShortUrlHelper.GetProfileUrl(attacker.Id)}) {result.ToString().ToLower()} [{defender.Name}]({ShortUrlHelper.GetProfileUrl(defender.Id)})");
-        stringBuilder.Append('\n');
         
         var faction = await client.GetUserFactionAsync(attacker.Id);
-        stringBuilder.AppendLine("## Player");
+        stringBuilder.AppendLine("### Player");
         stringBuilder.AppendLine($"[{attacker.Name}]({ShortUrlHelper.GetProfileUrl(attacker.Id)})");
         stringBuilder.AppendLine($"Level {attacker.Level}");
-        
         
         if (faction is not null)
         {
             stringBuilder.AppendLine($"[{faction.Name}]({ShortUrlHelper.GetFactionUrl(faction.Id)})");
         }
         
+        stringBuilder.AppendLine("### Battle stats");
         if (battleStat != null)
         {
-            stringBuilder.Append('\n');
-            stringBuilder.AppendLine("## Battle stats");
             stringBuilder.AppendLine($"Total: {battleStat.TotalHumanReadable}");
 
             if (battleStat.Details is not null)
@@ -157,13 +154,13 @@ public class GetIncomingAttacks(
         }
         else
         {
-            stringBuilder.AppendLine("## No stats available");
+            stringBuilder.AppendLine("** No battle stats found **");
         }
         
         return new MessageProperties
         {
             Embeds = [
-                new()
+                new EmbedProperties
                 {
                     Title = "Retaliation opportunity",
                     Description = stringBuilder.ToString(),
