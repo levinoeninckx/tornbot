@@ -47,7 +47,7 @@ public class GetOutgoingAttacks(AttackService attackService, IDbContextFactory<T
                         [
                             new EmbedProperties
                             {
-                                Title = $"Retal claimed by [{attackerBasic.Name}]({ShortUrlHelper.GetProfileUrl(attackerBasic.Id)})",
+                                Title = $"Retal claimed by {attackerBasic.Name}[{attackerBasic.Id}]",
                                 Description = message.Embeds[0].Description,
                                 Color = new Color(0, 255, 255)
                             }
