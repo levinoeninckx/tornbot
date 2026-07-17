@@ -241,8 +241,12 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService)
         {
             return null;
         }
-
-        var response = await GetAsync<TornItemsResponse>($"torn/{string.Join(',', itemIds)}/items", key, ct);
+        
+        var ids = itemIds.ToList();
+        if (ids.Count == 0)
+            return [];
+        
+        var response = await GetAsync<TornItemsResponse>($"torn/{string.Join(',', ids)}/items", key, ct);
 
         return response.Items;
     }

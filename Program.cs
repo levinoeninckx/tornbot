@@ -11,6 +11,9 @@ using NetCord.Hosting.Services.ApplicationCommands;
 using NetCord.Hosting.Services.ComponentInteractions;
 using NetCord.Services.ComponentInteractions;
 using Quartz;
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 using TornBot.Bot.Features.OrganizedCrime.Jobs;
 using TornBot.Bot.Features.Retaliation;
 using TornBot.Bot.Features.Verification;
@@ -27,7 +30,27 @@ if (builder.Environment.IsDevelopment())
     builder.Configuration.AddUserSecrets<Program>();
 }
 
-builder.Services.AddLogging();
+
+
+builder.Services.AddSerilog(configure =>
+{
+    configure.WriteTo.Console();
+    
+    configure.MinimumLevel.Override("Microsoft.AspNetCore.Hosting", LogEventLevel.Warning);
+    configure.MinimumLevel.Override("Microsoft.AspNetCore.Mvc", LogEventLevel.Warning);
+    configure.MinimumLevel.Override("Microsoft.AspNetCore.Routing", LogEventLevel.Warning);
+
+    if (builder.Environment.IsDevelopment())
+        return;
+    
+    var seqApiKey = builder.Configuration["seq:apiKey"];
+    var seqUrl = builder.Configuration["seq:url"];
+    if (seqApiKey == null || seqUrl == null) return;
+        
+    var levelSwitch = new LoggingLevelSwitch();
+    configure.MinimumLevel.ControlledBy(levelSwitch);
+    configure.WriteTo.Seq(seqUrl, apiKey: seqApiKey, controlLevelSwitch: levelSwitch);
+});
 
 var connectionString = builder.Configuration["ConnectionStrings:Tornbot"];
 
@@ -46,9 +69,6 @@ builder.Services.AddQuartz(q =>
     q.ScheduleJob<GetOutgoingAttacks>(trigger => trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
     q.ScheduleJob<CheckExpiredRetals>(trigger => trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
 });
-
-// Job registrations
-builder.Services.AddTransient<UpdateOrganizedCrimes>();
 
 builder.Services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
 
@@ -73,10 +93,7 @@ builder.Services
     .AddComponentInteractions<StringMenuInteraction, StringMenuInteractionContext>();
 
 // Httpclient
-builder.Services.AddHttpClient<TornApiClient>(client =>
-{
-    client.BaseAddress = new Uri("https://api.torn.com/v2/");
-});
+builder.Services.AddHttpClient<TornApiClient>(client => client.BaseAddress = new Uri("https://api.torn.com/v2/"));
 builder.Services.AddHttpClient<AttackService>(client => client.BaseAddress = new Uri("https://api.torn.com/v2/faction/attacksfull/"));
 builder.Services.AddHttpClient<FfScouterClient>(client => client.BaseAddress = new Uri("https://ffscouter.com/api/v1/"));
 builder.Services.AddHttpClient<TornStatClient>(client => client.BaseAddress = new Uri("https://www.tornstats.com/api/v2/"));
