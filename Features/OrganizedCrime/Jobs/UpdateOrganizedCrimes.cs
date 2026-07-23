@@ -62,7 +62,7 @@ public class UpdateOrganizedCrimes(
         }
         catch (Exception e)
         {
-            logger.LogError(e, "Something went wrong while running the UpdateOrganizedCrimes job");
+            logger.LogCritical(e, "Something went wrong while running the UpdateOrganizedCrimes job");
         }
     }
 
@@ -71,11 +71,8 @@ public class UpdateOrganizedCrimes(
     {
         var trackedCrimeIds = faction.OrganizedCrimes.Select(c => c.CrimeId).ToImmutableHashSet();
         var untrackedCrimes = crimes
-            .Where(c => c.Status is nameof(OrganizedCrimeStatus.Recruiting) or nameof(OrganizedCrimeStatus.Planning))
             .Where(c => !trackedCrimeIds.Contains(c.Id))
             .ToList();
-
-        if (untrackedCrimes.Count == 0) return;
 
         faction.OrganizedCrimes.AddRange(untrackedCrimes
             .Select(c => new Domain.Models.OrganizedCrime
@@ -99,22 +96,23 @@ public class UpdateOrganizedCrimes(
     private async Task ProcessCompletedCrimes(Faction faction, IEnumerable<FactionCrime> crimes,
         OrganizedCrimeModuleConfig config)
     {
-        var crimeDict = crimes.ToDictionary(c => c.Id);
+        var completedCrimeDict = crimes.ToDictionary(c => c.Id);
         var trackedCrimes = faction.OrganizedCrimes.ToList();
 
         foreach (var trackedCrime in trackedCrimes)
         {
-            if (!crimeDict.TryGetValue(trackedCrime.CrimeId, out var apiCrime)) continue;
+            if (!completedCrimeDict.TryGetValue(trackedCrime.CrimeId, out var completedCrime)) continue;
 
-            var currentStatus = Enum.Parse<OrganizedCrimeStatus>(apiCrime.Status);
+            var currentStatus = Enum.Parse<OrganizedCrimeStatus>(completedCrime.Status);
             if (currentStatus != OrganizedCrimeStatus.Successful &&
                 currentStatus != OrganizedCrimeStatus.Failure) continue;
+
             var roleId = config.NotificationRoleId!.Value;
             var channelId = config.NotificationChannelId!.Value;
 
             var message = currentStatus == OrganizedCrimeStatus.Successful
-                ? await CreateSuccessfulMessageAsync(apiCrime, roleId)
-                : CreateFailureMessage(apiCrime, roleId);
+                ? await CreateSuccessfulMessageAsync(completedCrime, roleId)
+                : CreateFailureMessage(completedCrime, roleId);
 
             await restClient.SendMessageAsync(channelId, message);
             faction.OrganizedCrimes.Remove(trackedCrime);
@@ -276,6 +274,6 @@ public class UpdateOrganizedCrimes(
     {
         var percentageList = percentages.ToList();
         var total = percentageList.Sum();
-        return (double)total / (percentageList.Count * 100);
+        return (double)total / (percentageList.Count);
     }
 }
