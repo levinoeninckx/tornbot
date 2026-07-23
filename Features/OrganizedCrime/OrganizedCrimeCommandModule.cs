@@ -11,7 +11,6 @@ using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.OrganizedCrime;
 
-
 [RequireKey(AccessLevel.Public, false)]
 [RequireKey(AccessLevel.Minimal, true)]
 [RequireOrganizedCrimesAllowedRoles]
@@ -19,26 +18,32 @@ namespace TornBot.Bot.Features.OrganizedCrime;
 [SlashCommand("oc", "organized crime related commands")]
 public class OrganizedCrimeCommandModule(TornApiClient client) : ApplicationCommandModule<ApplicationCommandContext>
 {
-
     [SubSlashCommand("profits", "see how much your faction has earned with organized crime")]
     public async Task GetFactionCrimeProfits()
     {
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredMessage());
-        
-        var crimes = await client.GetAllFactionCrimesAsync();
+
+        var crimes = await client.GetCompletedCrimesAsync(Context.Guild!.Id);
+        if (crimes == null)
+        {
+            await Context.Interaction.SendFollowupMessageAsync(
+                MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                    "Something went wrong while contacting the torn api"));
+            return;
+        }
 
         var factionRewardMoney = crimes.Where(c => c.Status == "Successful").Sum(c => c.Rewards.Money);
         var rewardItems = crimes
             .Where(c => c.Status == "Successful")
             .SelectMany(c => c.Rewards.Items)
             .ToImmutableList();
-        
+
         var rewardItemInfo = (await client.GetItemsInfoAsync(rewardItems.Select(i => i.Id)) ?? Array.Empty<TornItem>())
             .ToFrozenDictionary(i => i.Id, i => i);
 
         var rewardItemsTotalValue = rewardItems
             .Sum(i => rewardItemInfo[i.Id].Value.MarketPrice);
-        
+
         var usedItems = crimes
             .Where(c => c.Status == "Successful")
             .SelectMany(c => c.Slots
@@ -48,33 +53,34 @@ public class OrganizedCrimeCommandModule(TornApiClient client) : ApplicationComm
                 .Select(s => s.ItemRequirement!.Id))
             .GroupBy(s => s)
             .ToFrozenDictionary(s => s.Key, s => s.Count());
-        
+
         var usedItemsInfo = await client.GetItemsInfoAsync(usedItems.Keys);
         if (usedItemsInfo is null)
         {
             return;
         }
-        
+
         var totalItemCosts = usedItemsInfo.Sum(i => i.Value.MarketPrice * usedItems[i.Id]);
 
         var profitStringBuilder = new StringBuilder();
         profitStringBuilder.AppendLine("### Amount of organized crimes");
-        profitStringBuilder.AppendLine($"{crimes.Length}");
-        
+        profitStringBuilder.AppendLine($"{crimes.Count}");
+
         profitStringBuilder.AppendLine("### Money earned");
         profitStringBuilder.AppendLine($"{factionRewardMoney.ToString("C0", new CultureInfo("en-US"))}");
-        
+
         profitStringBuilder.AppendLine("### Money from items");
         profitStringBuilder.AppendLine($"Items earned: {rewardItems.Count}");
         profitStringBuilder.AppendLine($"{rewardItemsTotalValue.ToString("C0", new CultureInfo("en-US"))}");
-        
+
         profitStringBuilder.AppendLine("### Cost of used items");
         profitStringBuilder.AppendLine($"Items used: {usedItems.Sum(i => i.Value)}");
         profitStringBuilder.AppendLine($"{totalItemCosts.ToString("C0", new CultureInfo("en-US"))}");
-        
+
         await Context.Interaction.SendFollowupMessageAsync(new()
         {
-            Embeds = [
+            Embeds =
+            [
                 new EmbedProperties
                 {
                     Title = "Profit report",

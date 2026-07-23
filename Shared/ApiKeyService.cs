@@ -18,7 +18,7 @@ public class ApiKeyService(IDbContextFactory<TornbotContext> contextFactory, ILo
     {
         await using var context = await contextFactory.CreateDbContextAsync();
         var key = await context.ApiKeys.FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.Public);
-        
+
         return key?.Key;
     }
 
@@ -27,7 +27,7 @@ public class ApiKeyService(IDbContextFactory<TornbotContext> contextFactory, ILo
         await using var context = await contextFactory.CreateDbContextAsync();
         return await context.ApiKeys.ToListAsync();
     }
-    
+
     public async Task<IReadOnlyList<ApiKey>> GetApiKeysByUserIdAsync(int userId)
     {
         await using var context = await contextFactory.CreateDbContextAsync();
@@ -45,26 +45,35 @@ public class ApiKeyService(IDbContextFactory<TornbotContext> contextFactory, ILo
                 .SelectMany(f => f.ApiKeys)
                 .FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.LimitedAccess && k.HasFactionAccess);
         }
+
         return await context.ApiKeys
             .FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.LimitedAccess);
     }
-    
-    public async Task<ApiKey?> GetMinimalApiKeyAsync(bool hasFactionAccess = false)
+
+    public async Task<ApiKey?> GetMinimalApiKeyAsync(ulong guildId, bool hasFactionAccess = false)
     {
         await using var context = await contextFactory.CreateDbContextAsync();
+        var queryable = context.Factions
+            .AsNoTracking()
+            .Include(f => f.ApiKeys)
+            .Where(f => f.GuildId == guildId)
+            .SelectMany(f => f.ApiKeys);
+
         if (hasFactionAccess)
         {
-            return await context.ApiKeys.FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.Minimal && k.HasFactionAccess);
+            return await queryable.FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.Minimal && k.HasFactionAccess);
         }
-        return await context.ApiKeys.FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.Minimal);
+
+        return await queryable
+            .FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.Minimal);
     }
-    
+
     public async Task<ApiKey?> GetFfScouterApiKeyAsync()
     {
         await using var context = await contextFactory.CreateDbContextAsync();
         return await context.ApiKeys.FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.FfScouter);
     }
-    
+
     public async Task<ApiKey?> GetTornStatsApiKeyAsync()
     {
         await using var context = await contextFactory.CreateDbContextAsync();

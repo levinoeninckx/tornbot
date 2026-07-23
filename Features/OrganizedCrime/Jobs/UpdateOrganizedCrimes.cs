@@ -19,37 +19,55 @@ public class UpdateOrganizedCrimes(
     IDbContextFactory<TornbotContext> contextFactory,
     ModuleConfigRepository repository,
     RestClient restClient,
-    ILogger<UpdateOrganizedCrimes> logger) : IJob
+    ILogger<UpdateOrganizedCrimes> logger
+) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
     {
-        await using var dbContext = await contextFactory.CreateDbContextAsync();
-        var factions = await dbContext.Factions
-            .Include(f => f.OrganizedCrimes)
-            .ToListAsync();
-        
-        foreach(var faction in factions){
-            var config = await repository.GetOrganizedCrimeModuleConfigByGuildId(faction.GuildId);
-
-            if (ValidateConfig(config, faction.GuildId)) return;
-            
-            var crimes = await client.GetAllFactionCrimesAsync();
-
-            await ProcessNewCrimes(faction, crimes, config!);
-            await ProcessExistingCrimes(faction, crimes, config!);
-        }
-        
         try
         {
+            await using var dbContext = await contextFactory.CreateDbContextAsync();
+            var factions = await dbContext.Factions
+                .Include(f => f.OrganizedCrimes)
+                .ToListAsync();
+
+            foreach (var faction in factions)
+            {
+                var config = await repository.GetOrganizedCrimeModuleConfigByGuildId(faction.GuildId);
+
+                if (ValidateConfig(config, faction.GuildId)) return;
+
+                var availableCrimes = await client.GetAvailableCrimesByGuildIdAsync(faction.GuildId);
+                if (availableCrimes is null)
+                {
+                    logger.LogError("Could not retrieve available crimes for faction with id {factionId}",
+                        faction.FactionId);
+                    return;
+                }
+
+                await ProcessAvailableCrimes(faction, availableCrimes, config!);
+
+                var completedCrimes = await client.GetCompletedCrimesAsync(faction.GuildId);
+                if (completedCrimes is null)
+                {
+                    logger.LogError("Could not retrieve completed crimes for faction with id {factionId}",
+                        faction.FactionId);
+                    return;
+                }
+
+                await ProcessCompletedCrimes(faction, completedCrimes, config!);
+            }
+
             await dbContext.SaveChangesAsync();
         }
         catch (Exception e)
         {
-            logger.LogError(e, "Error getting new crimes");
+            logger.LogError(e, "Something went wrong while running the UpdateOrganizedCrimes job");
         }
     }
 
-    private async Task ProcessNewCrimes(Faction faction, FactionCrime[] crimes, OrganizedCrimeModuleConfig config)
+    private async Task ProcessAvailableCrimes(Faction faction, IEnumerable<FactionCrime> crimes,
+        OrganizedCrimeModuleConfig config)
     {
         var trackedCrimeIds = faction.OrganizedCrimes.Select(c => c.CrimeId).ToImmutableHashSet();
         var untrackedCrimes = crimes
@@ -59,14 +77,13 @@ public class UpdateOrganizedCrimes(
 
         if (untrackedCrimes.Count == 0) return;
 
-        foreach (var crime in untrackedCrimes)
-        {
-            faction.OrganizedCrimes.Add(new Domain.Models.OrganizedCrime
+        faction.OrganizedCrimes.AddRange(untrackedCrimes
+            .Select(c => new Domain.Models.OrganizedCrime
             {
-                CrimeId = crime.Id,
-                Status = Enum.Parse<OrganizedCrimeStatus>(crime.Status)
-            });
-        }
+                CrimeId = c.Id,
+                Status = Enum.Parse<OrganizedCrimeStatus>(c.Status)
+            })
+        );
 
         var roleId = config.NotificationRoleId!.Value;
         var channelId = config.NotificationChannelId!.Value;
@@ -79,7 +96,8 @@ public class UpdateOrganizedCrimes(
         }
     }
 
-    private async Task ProcessExistingCrimes(Faction faction, FactionCrime[] crimes, OrganizedCrimeModuleConfig config)
+    private async Task ProcessCompletedCrimes(Faction faction, IEnumerable<FactionCrime> crimes,
+        OrganizedCrimeModuleConfig config)
     {
         var crimeDict = crimes.ToDictionary(c => c.Id);
         var trackedCrimes = faction.OrganizedCrimes.ToList();
@@ -116,7 +134,7 @@ public class UpdateOrganizedCrimes(
             logger.LogWarning($"OC notifications disabled for guild: {guildId}");
             return true;
         }
-            
+
         if (config.NotificationChannelId == null)
         {
             logger.LogWarning($"No notification channel id found for guild: {guildId}");
@@ -125,7 +143,7 @@ public class UpdateOrganizedCrimes(
 
         return false;
     }
-    
+
     private static EmbedProperties CreateNewCrimeEmbed(FactionCrime crime)
     {
         var stringBuilder = new StringBuilder();
@@ -145,8 +163,9 @@ public class UpdateOrganizedCrimes(
             ]
         };
     }
-    
-    private static MessageProperties CreateNewCrimeMessage(IEnumerable<EmbedProperties> embeds, ulong ocNotificationRoleId)
+
+    private static MessageProperties CreateNewCrimeMessage(IEnumerable<EmbedProperties> embeds,
+        ulong ocNotificationRoleId)
     {
         return new MessageProperties
         {
@@ -154,6 +173,7 @@ public class UpdateOrganizedCrimes(
             Embeds = embeds.ToList(),
         };
     }
+
     private async Task<MessageProperties> CreateSuccessfulMessageAsync(FactionCrime crime, ulong ocNotificationRoleId)
     {
         var stringBuilder = new StringBuilder();
@@ -163,8 +183,6 @@ public class UpdateOrganizedCrimes(
             stringBuilder.AppendLine($"{sg.First().Position}: x{sg.Count()}");
         }
 
-        var duration = TimeSpan.FromSeconds(Math.Abs(crime.ExecutedAt!.Value - crime.CreatedAt));
-        
         var playerStringBuilder = new StringBuilder();
         foreach (var slot in crime.Slots)
         {
@@ -174,7 +192,7 @@ public class UpdateOrganizedCrimes(
                 playerStringBuilder.AppendLine("Unknown player");
                 continue;
             }
-            
+
             playerStringBuilder.AppendLine($"[{player.Name}]({ShortUrlHelper.GetProfileUrl(player.Id)})");
         }
 
@@ -191,7 +209,7 @@ public class UpdateOrganizedCrimes(
             foreach (var item in crime.Rewards.Items)
             {
                 rewardsStringBuilder.AppendLine($"{itemInfoDict[item.Id].Name} x {item.Quantity}");
-            }   
+            }
         }
         else
         {
@@ -201,41 +219,59 @@ public class UpdateOrganizedCrimes(
         rewardsStringBuilder.AppendLine($"{crime.Rewards.Respect} respect");
         rewardsStringBuilder.AppendLine($"{crime.Rewards.Scope} scope");
 
+        var duration = crime.ExecutedAt - crime.CreatedAt;
+        var durationString = duration.HasValue ? $"{duration.Value.Days} days and {duration.Value.Hours} hours" : "/";
         return new MessageProperties
         {
             Content = $"<@&{ocNotificationRoleId}>",
-            Embeds = [
+            Embeds =
+            [
                 new EmbedProperties
                 {
-                    Fields = [
+                    Fields =
+                    [
                         new() { Name = "Crime", Value = crime.Name },
                         new() { Name = "Difficulty", Value = crime.Difficulty.ToString() },
-                        new() { Name = "Duration", Value = $"{duration.Days} days and {duration.Hours} hours" },
-                        new(){ Name = "Players", Value = playerStringBuilder.ToString()},
-                        new() { Name = "Success chance", Value = $"{CalculateSuccessChance(crime.Slots.Select(c => c.Cpr)).ToString("F2", new CultureInfo("en-US"))}%"},
-                        new (){ Name = "Rewards", Value = rewardsStringBuilder.ToString()}
+                        new() { Name = "Duration", Value = durationString },
+                        new() { Name = "Players", Value = playerStringBuilder.ToString() },
+                        new()
+                        {
+                            Name = "Success chance",
+                            Value =
+                                $"{CalculateSuccessChance(crime.Slots.Select(c => c.Cpr)).ToString("F2", new CultureInfo("en-US"))}%"
+                        },
+                        new() { Name = "Rewards", Value = rewardsStringBuilder.ToString() }
                     ]
                 }
             ],
         };
     }
+
     private static MessageProperties CreateFailureMessage(FactionCrime crime, ulong ocNotificationRoleId)
     {
         return new MessageProperties
         {
             Content = $"<@&{ocNotificationRoleId}>",
-            Embeds = [
+            Embeds =
+            [
                 new EmbedProperties
                 {
-                    Fields = [
+                    Fields =
+                    [
                         new() { Name = "Crime", Value = crime.Name },
                         new() { Name = "Difficulty", Value = crime.Difficulty.ToString() },
-                        new() { Name = "Success chance", Value = $"{CalculateSuccessChance(crime.Slots.Select(c => c.Cpr)).ToString("P2", new CultureInfo("en-US"))}%"}
+                        new()
+                        {
+                            Name = "Success chance",
+                            Value =
+                                $"{CalculateSuccessChance(crime.Slots.Select(c => c.Cpr)).ToString("P2", new CultureInfo("en-US"))}%"
+                        }
                     ]
                 }
             ],
         };
     }
+
     private static double CalculateSuccessChance(IEnumerable<int> percentages)
     {
         var percentageList = percentages.ToList();
