@@ -1,6 +1,4 @@
-using System;
-
-namespace discordBotTest.Features.Chains;
+namespace TornBot.Bot.Infrastructure.TornApi.Models;
 
 public class ChainState
 {

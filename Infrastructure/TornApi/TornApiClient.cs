@@ -2,11 +2,9 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Net.Http.Json;
 using System.Text.Json;
-using discordBotTest.Features.Chains;
 using Microsoft.Extensions.Logging;
 using TornBot.Bot.Infrastructure.TornApi.Models;
 using TornBot.Bot.Shared;
-using Faction = FactionBot.Infrastructure.TornApi.Models.Faction;
 
 namespace TornBot.Bot.Infrastructure.TornApi;
 
@@ -17,8 +15,16 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService, I
         PropertyNameCaseInsensitive = true
     };
 
-    public async Task<ImmutableList<FactionCrime>?> GetAvailableCrimesByGuildIdAsync(ulong guildId,
+    public Task<ImmutableList<FactionCrime>?> GetAvailableCrimesByGuildIdAsync(ulong guildId,
         CancellationToken ct = default)
+        => GetCrimesByCategoryAsync(guildId, "available", ct);
+
+    public Task<ImmutableList<FactionCrime>?> GetCompletedCrimesAsync(ulong guildId,
+        CancellationToken ct = default)
+        => GetCrimesByCategoryAsync(guildId, "completed", ct);
+
+    private async Task<ImmutableList<FactionCrime>?> GetCrimesByCategoryAsync(ulong guildId, string category,
+        CancellationToken ct)
     {
         var key = await apiKeyService.GetMinimalApiKeyAsync(guildId, true);
         if (key == null)
@@ -27,12 +33,11 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService, I
             return null;
         }
 
-        var endpoint = $"faction/crimes?cat=available&limit=50&sort=DESC&key={key}";
-
         try
         {
-            var response = await httpClient.GetFromJsonAsync<FactionCrimesResponse>(endpoint, cancellationToken: ct);
-            if (response?.Crimes == null)
+            var response = await GetAsync<FactionCrimesResponse>("faction/crimes", key.Key, ct,
+                $"cat={category}&limit=50&sort=DESC");
+            if (response.Crimes == null)
             {
                 logger.LogError("Response was empty, something went wrong accessing the torn api");
                 return null;
@@ -40,37 +45,6 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService, I
 
             return response.Crimes.ToImmutableList();
         }
-
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Something went wrong while processing the request to the torn api");
-            return null;
-        }
-    }
-
-    public async Task<ImmutableList<FactionCrime>?> GetCompletedCrimesAsync(ulong guildId,
-        CancellationToken ct = default)
-    {
-        var key = await apiKeyService.GetMinimalApiKeyAsync(guildId, true);
-        if (key == null)
-        {
-            logger.LogWarning("No minimal api key with faction access found");
-            return null;
-        }
-
-        var endpoint = $"faction/crimes?cat=completed&limit=50&sort=DESC&key={key}";
-        try
-        {
-            var response = await httpClient.GetFromJsonAsync<FactionCrimesResponse>(endpoint, cancellationToken: ct);
-            if (response?.Crimes == null)
-            {
-                logger.LogError("Response was empty, something went wrong accessing the torn api");
-                return null;
-            }
-
-            return response.Crimes.ToImmutableList();
-        }
-
         catch (Exception ex)
         {
             logger.LogError(ex, "Something went wrong while processing the request to the torn api");
@@ -119,7 +93,7 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService, I
             {
                 int offset = currentOffset + (i * limit);
                 var queryParams = $"offset={offset}&limit={limit}";
-                tasks.Add(GetAsync<FactionCrimesResponse>("faction/crimes", key.Key, queryParamters: queryParams,
+                tasks.Add(GetAsync<FactionCrimesResponse>("faction/crimes", key.Key, queryParameters: queryParams,
                     ct: CancellationToken.None));
             }
 
@@ -156,17 +130,16 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService, I
     }
 
     private async Task<T> GetAsync<T>(string endpoint, string key, CancellationToken ct = default,
-        string queryParamters = "")
+        string queryParameters = "")
     {
         var url = $"{endpoint}?key={key}";
-        if (!string.IsNullOrEmpty(queryParamters))
+        if (!string.IsNullOrEmpty(queryParameters))
         {
-            url = $"{url}&{queryParamters}";
+            url = $"{url}&{queryParameters}";
         }
 
         using var response = await httpClient.GetAsync(url, ct);
 
-        var bodyString = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(ct);
@@ -224,7 +197,7 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService, I
         return userBasicResponse.Profile;
     }
 
-    public async Task<Faction?> GetUserFactionAsync(int userId, CancellationToken ct = default)
+    public async Task<TornFaction?> GetUserFactionAsync(int userId, CancellationToken ct = default)
     {
         var key = await apiKeyService.GetPublicApiKeyAsync();
         if (key == null)

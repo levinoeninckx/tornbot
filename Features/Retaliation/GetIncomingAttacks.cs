@@ -3,13 +3,11 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NetCord.Rest;
-using Quartz;
 using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Features.Retaliation.Models;
 using TornBot.Bot.Infrastructure;
-using TornBot.Bot.Infrastructure.FFScouter;
-using TornBot.Bot.Infrastructure.FFScouter.Models;
+using TornBot.Bot.Infrastructure.BackgroundJobs;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Infrastructure.TornApi.Models;
 using TornBot.Bot.Shared;
@@ -21,76 +19,70 @@ public class GetIncomingAttacks(
     IDbContextFactory<TornbotContext> contextFactory,
     TornApiClient client,
     BattleStatService bsService,
-    ModuleConfigRepository repository, 
+    ModuleConfigRepository repository,
     RestClient restClient,
     ILogger<GetIncomingAttacks> logger
-    ) : IJob
+) : FactionJob<GetIncomingAttacks>(contextFactory, logger)
 {
-    public async Task Execute(IJobExecutionContext context)
+    protected override Task<List<Faction>> LoadFactionsAsync(TornbotContext dbContext, CancellationToken ct)
     {
-        await using var dbContext = await contextFactory.CreateDbContextAsync();
-
-        var factions = await dbContext.Factions
+        return dbContext.Factions
             .Include(f => f.TrackedAttacks)
-            .ToListAsync();
+            .ToListAsync(ct);
+    }
 
-        foreach (var faction in factions)
+    protected override async Task ProcessFactionAsync(Faction faction, CancellationToken ct)
+    {
+        var config = await repository.GetRetalModuleConfigByGuildId(faction.GuildId);
+        if (ShouldSkip(config, faction.GuildId)) return;
+
+        if (config!.State == ModuleState.Disabled)
         {
-            var config = await repository.GetRetalModuleConfigByGuildId(faction.GuildId);
-            if (ValidateConfig(config, faction.GuildId)) continue;
+            Logger.LogWarning("Retal module is disabled for guild {GuildId}", faction.GuildId);
+            return;
+        }
 
-            if (config!.State == ModuleState.Disabled)
+        var trackedAttacks = faction.TrackedAttacks.Select(a => a.AttackId).ToImmutableHashSet();
+        var attacks = await attackService.GetIncomingAttacks(faction.GuildId);
+
+        foreach (var attack in attacks
+                     .Where(a => !trackedAttacks.Contains((ulong)a.Id))
+                     .Where(a => DateTime.UtcNow - a.Ended < TimeSpan.FromMinutes(5)))
+        {
+            if (attack.Attacker == null)
+                continue;
+
+            if (attack.Attacker.FactionId == attack.Defender.FactionId)
             {
-                logger.LogWarning("Retal module is disabled for guild {guildId}", faction.GuildId);
+                Logger.LogInformation("Attacker and defender from same faction with Id {FactionId}",
+                    attack.Attacker.FactionId);
                 continue;
             }
-            
-            var trackedAttacks = faction.TrackedAttacks.Select(a => a.AttackId).ToImmutableHashSet();
-            var attacks = await attackService.GetIncomingAttacks(faction.GuildId);
-        
-            foreach (var attack in attacks.Where(a => !trackedAttacks.Contains((ulong)a.Id)).Where(a => (DateTime.UtcNow - a.Ended < TimeSpan.FromMinutes(5))))
+
+            var attackerBasic = await client.GetUserProfileById(attack.Attacker.Id, ct);
+            var defenderBasic = await client.GetUserProfileById(attack.Defender.Id, ct);
+            if (attackerBasic == null || defenderBasic == null)
             {
-                if (attack.Attacker == null)
-                    continue;
-                
-                if (attack.Attacker.FactionId == attack.Defender.FactionId)
-                {
-                    logger.LogInformation("Attacker and defender from same faction with Id {factionId}", attack.Attacker.FactionId);
-                    continue;
-                }
-                
-                var attackerBasic = await client.GetUserProfileById(attack.Attacker.Id);
-                var defenderBasic = await client.GetUserProfileById(attack.Defender.Id);
-                if (attackerBasic == null || defenderBasic == null)
-                {
-                    logger.LogWarning("Something went wrong requesting user info for: {attackerId},{defenderId}", attack.Attacker.Id, attack.Defender.Id);  
-                    continue;
-                }
-
-                if (!IsSuccessfulAttack(attack.Result)) continue;
-
-                var playerStats = await bsService.GetUserBattlestatsById(attackerBasic.Id);
-                var msg = await CreateRetalMessageAsync(attack.Result, attackerBasic, defenderBasic, playerStats);
-                
-                var message = await restClient.SendMessageAsync(config.NotificationChannelId!.Value, msg);
-                var trackedAttack = new RetalOpportunity
-                {
-                    AttackId = (ulong)attack.Id,
-                    MessageId = message.Id,
-                    TargetPlayerId = attack.Attacker.Id
-                };
-                        
-                faction.TrackedAttacks.Add(trackedAttack);
+                Logger.LogWarning("Something went wrong requesting user info for: {AttackerId},{DefenderId}",
+                    attack.Attacker.Id, attack.Defender.Id);
+                continue;
             }
-        }
 
-        try
-        {
-            await dbContext.SaveChangesAsync();
-        }
-        catch (Exception e)
-        {
-            logger.LogCritical(e, "Failed to save retal opportunities");
+            if (!IsSuccessfulAttack(attack.Result)) continue;
+
+            var playerStats = await bsService.GetUserBattlestatsById(attackerBasic.Id);
+            var msg = await CreateRetalMessageAsync(attack.Result, attackerBasic, defenderBasic, playerStats);
+
+            var message =
+                await restClient.SendMessageAsync(config.NotificationChannelId!.Value, msg, cancellationToken: ct);
+            var trackedAttack = new RetalOpportunity
+            {
+                AttackId = (ulong)attack.Id,
+                MessageId = message.Id,
+                TargetPlayerId = attack.Attacker.Id
+            };
+
+            faction.TrackedAttacks.Add(trackedAttack);
         }
     }
 
@@ -103,42 +95,43 @@ public class GetIncomingAttacks(
             AttackResult.Bounty => true,
         _ => false
     };
-    
-    private bool ValidateConfig(RetalModuleConfig? config, ulong guildId)
+
+    private bool ShouldSkip(RetalModuleConfig? config, ulong guildId)
     {
-        if(config == null)
+        if (config == null)
         {
-            logger.LogWarning("No retal module config found for guild {guildId}", guildId);
+            Logger.LogWarning("No retal module config found for guild {GuildId}", guildId);
             return true;
         }
 
         if (!config.NotificationChannelId.HasValue)
         {
-            logger.LogWarning("No retal channel id set for retal module for guild {guildId}", guildId);
+            Logger.LogWarning("No retal channel id set for retal module for guild {GuildId}", guildId);
             return true;
         }
 
         return false;
     }
 
-    private async Task<MessageProperties> CreateRetalMessageAsync(AttackResult result, Profile attacker, Profile defender, BattleStat? battleStat)
+    private async Task<MessageProperties> CreateRetalMessageAsync(AttackResult result, Profile attacker,
+        Profile defender, BattleStat? battleStat)
     {
-        // TODO: refactor to be static?
         var stringBuilder = new StringBuilder();
-        
+
         stringBuilder
-            .AppendLine($"[{attacker.Name}]({ShortUrlHelper.GetProfileUrl(attacker.Id)}) {result.ToString().ToLower()} [{defender.Name}]({ShortUrlHelper.GetProfileUrl(defender.Id)})");
-        
+            .AppendLine(
+                $"[{attacker.Name}]({ShortUrlHelper.GetProfileUrl(attacker.Id)}) {result.ToString().ToLower()} [{defender.Name}]({ShortUrlHelper.GetProfileUrl(defender.Id)})");
+
         var faction = await client.GetUserFactionAsync(attacker.Id);
         stringBuilder.AppendLine("### Player");
         stringBuilder.AppendLine($"[{attacker.Name}]({ShortUrlHelper.GetProfileUrl(attacker.Id)})");
         stringBuilder.AppendLine($"Level {attacker.Level}");
-        
+
         if (faction is not null)
         {
             stringBuilder.AppendLine($"[{faction.Name}]({ShortUrlHelper.GetFactionUrl(faction.Id)})");
         }
-        
+
         stringBuilder.AppendLine("### Battle stats");
         if (battleStat != null)
         {
@@ -156,17 +149,19 @@ public class GetIncomingAttacks(
         {
             stringBuilder.AppendLine("** No battle stats found **");
         }
-        
+
         return new MessageProperties
         {
-            Embeds = [
+            Embeds =
+            [
                 new EmbedProperties
                 {
                     Title = "Retaliation opportunity",
                     Description = stringBuilder.ToString(),
                 },
             ],
-            Components = [
+            Components =
+            [
                 new ActionRowProperties
                 {
                     new LinkButtonProperties(ShortUrlHelper.GetAttackUrl(attacker.Id).ToString(), "Attack"),

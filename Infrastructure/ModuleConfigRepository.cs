@@ -30,39 +30,39 @@ public class ModuleConfigRepository(
         return await GetModuleConfigByGuildId<RetalModuleConfig>(guildId, Module.Retal);
     }
 
-    private async Task<T?> GetModuleConfigByGuildId<T>(ulong guildId, Module module) where T : class
+    private async Task<T?> GetModuleConfigByGuildId<T>(ulong guildId, Module module) where T : class, new()
     {
-        // TODO: fix this class and method
         await using var context = await contextFactory.CreateDbContextAsync();
         var faction = await context.Factions
-            .Include(faction => faction.ModuleConfigs)
+            .Include(f => f.ModuleConfigs)
             .SingleOrDefaultAsync(x => x.GuildId == guildId);
 
-        var moduleConfig = faction?.ModuleConfigs.SingleOrDefault(x => x.Module == module);
+        if (faction == null)
+            return null;
 
-        if (moduleConfig == null && faction != null)
+        var moduleConfig = faction.ModuleConfigs.SingleOrDefault(x => x.Module == module);
+        if (moduleConfig != null)
+            return moduleConfig.Config.Deserialize<T>();
+
+        // No config exists yet for this module: lazily create and persist a default one.
+        var defaultConfig = new T();
+        faction.ModuleConfigs.Add(new ModuleConfig
         {
-            var newConfig = new ModuleConfig()
-            {
-                Module = module,
-                Config = JsonDocument.Parse(JsonSerializer.Serialize(Activator.CreateInstance<T>()))
-            };
-            faction.ModuleConfigs.Add(newConfig);
+            Module = module,
+            Config = JsonSerializer.SerializeToDocument(defaultConfig)
+        });
 
-            try
-            {
-                await context.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                logger.LogCritical(ex, "Failed to save module config");
-                return null;
-            }
-
-            return newConfig.Config.Deserialize<T>();
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogCritical(ex, "Failed to save default {Module} config for guild {GuildId}", module, guildId);
+            return null;
         }
 
-        return moduleConfig?.Config.Deserialize<T>();
+        return defaultConfig;
     }
 
     public async Task<bool> UpdateModuleConfig(ulong guildId, Module module, JsonDocument jsonConfig)

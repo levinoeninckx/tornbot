@@ -1,6 +1,4 @@
-using System;
-
-namespace discordBotTest.Shared;
+namespace TornBot.Bot.Shared;
 
 public class ChannelService
 {
@@ -8,7 +6,7 @@ public class ChannelService
 
     public ulong? GetChannelId(TrackingChannel trackingChannel)
     {
-        if(!_channelDictionary.TryGetValue(trackingChannel, out var channelId))
+        if (!_channelDictionary.TryGetValue(trackingChannel, out var channelId))
         {
             return null;
         }
@@ -16,5 +14,6 @@ public class ChannelService
         return channelId;
     }
 
-    public void AddChannelId(TrackingChannel trackingChannel, ulong channelId) => _channelDictionary.Add(trackingChannel, channelId);
+    public void AddChannelId(TrackingChannel trackingChannel, ulong channelId) =>
+        _channelDictionary.Add(trackingChannel, channelId);
 }

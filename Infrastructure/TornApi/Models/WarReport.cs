@@ -1,6 +1,4 @@
-using System;
-
-namespace FactionBot.Infrastructure.TornApi.Models;
+namespace TornBot.Bot.Infrastructure.TornApi.Models;
 
 public class RankedWarReportResponse
 {

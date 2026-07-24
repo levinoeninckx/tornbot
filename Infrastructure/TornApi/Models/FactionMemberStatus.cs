@@ -1,7 +1,4 @@
-using System;
-using System.Drawing;
-
-namespace FactionBot.Features.Wars;
+namespace TornBot.Bot.Infrastructure.TornApi.Models;
 
 public class FactionMemberStatus
 {

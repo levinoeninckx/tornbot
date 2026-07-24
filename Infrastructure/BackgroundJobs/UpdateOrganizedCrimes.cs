@@ -4,66 +4,53 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NetCord.Rest;
-using Quartz;
 using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
-using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Infrastructure.TornApi.Models;
 using TornBot.Bot.Shared;
 
-namespace TornBot.Bot.Features.OrganizedCrime.Jobs;
+namespace TornBot.Bot.Infrastructure.BackgroundJobs;
 
 public class UpdateOrganizedCrimes(
     TornApiClient client,
     IDbContextFactory<TornbotContext> contextFactory,
     ModuleConfigRepository repository,
-    RestClient restClient,
+    NotificationService notificationService,
     ILogger<UpdateOrganizedCrimes> logger
-) : IJob
+) : FactionJob<UpdateOrganizedCrimes>(contextFactory, logger)
 {
-    public async Task Execute(IJobExecutionContext context)
+    private static readonly CultureInfo Culture = CultureInfo.GetCultureInfo("en-US");
+
+    protected override Task<List<Faction>> LoadFactionsAsync(TornbotContext dbContext, CancellationToken ct)
     {
-        try
+        return dbContext.Factions
+            .Include(f => f.OrganizedCrimes)
+            .ToListAsync(ct);
+    }
+
+    protected override async Task ProcessFactionAsync(Faction faction, CancellationToken ct)
+    {
+        var config = await repository.GetOrganizedCrimeModuleConfigByGuildId(faction.GuildId);
+        if (ShouldSkip(config, faction.GuildId)) return;
+
+        var availableCrimes = await client.GetAvailableCrimesByGuildIdAsync(faction.GuildId, ct);
+        if (availableCrimes is null)
         {
-            await using var dbContext = await contextFactory.CreateDbContextAsync();
-            var factions = await dbContext.Factions
-                .Include(f => f.OrganizedCrimes)
-                .ToListAsync();
-
-            foreach (var faction in factions)
-            {
-                var config = await repository.GetOrganizedCrimeModuleConfigByGuildId(faction.GuildId);
-
-                if (ValidateConfig(config, faction.GuildId)) return;
-
-                var availableCrimes = await client.GetAvailableCrimesByGuildIdAsync(faction.GuildId);
-                if (availableCrimes is null)
-                {
-                    logger.LogError("Could not retrieve available crimes for faction with id {factionId}",
-                        faction.FactionId);
-                    return;
-                }
-
-                await ProcessAvailableCrimes(faction, availableCrimes, config!);
-
-                var completedCrimes = await client.GetCompletedCrimesAsync(faction.GuildId);
-                if (completedCrimes is null)
-                {
-                    logger.LogError("Could not retrieve completed crimes for faction with id {factionId}",
-                        faction.FactionId);
-                    return;
-                }
-
-                await ProcessCompletedCrimes(faction, completedCrimes, config!);
-            }
-
-            await dbContext.SaveChangesAsync();
+            Logger.LogError("Could not retrieve available crimes for faction with id {FactionId}", faction.FactionId);
+            return;
         }
-        catch (Exception e)
+
+        await ProcessAvailableCrimes(faction, availableCrimes, config!);
+
+        var completedCrimes = await client.GetCompletedCrimesAsync(faction.GuildId, ct);
+        if (completedCrimes is null)
         {
-            logger.LogCritical(e, "Something went wrong while running the UpdateOrganizedCrimes job");
+            Logger.LogError("Could not retrieve completed crimes for faction with id {FactionId}", faction.FactionId);
+            return;
         }
+
+        await ProcessCompletedCrimes(faction, completedCrimes, config!);
     }
 
     private async Task ProcessAvailableCrimes(Faction faction, IEnumerable<FactionCrime> crimes,
@@ -75,7 +62,7 @@ public class UpdateOrganizedCrimes(
             .ToList();
 
         faction.OrganizedCrimes.AddRange(untrackedCrimes
-            .Select(c => new Domain.Models.OrganizedCrime
+            .Select(c => new OrganizedCrime
             {
                 CrimeId = c.Id,
                 Status = Enum.Parse<OrganizedCrimeStatus>(c.Status)
@@ -86,11 +73,7 @@ public class UpdateOrganizedCrimes(
         var channelId = config.NotificationChannelId!.Value;
         var embeds = untrackedCrimes.Select(CreateNewCrimeEmbed).ToList();
 
-        for (var i = 0; i < embeds.Count; i += 10)
-        {
-            var batch = embeds.Skip(i).Take(10).ToList();
-            await restClient.SendMessageAsync(channelId, CreateNewCrimeMessage(batch, roleId));
-        }
+        await notificationService.SendEmbedsAsync(channelId, embeds, roleId);
     }
 
     private async Task ProcessCompletedCrimes(Faction faction, IEnumerable<FactionCrime> crimes,
@@ -111,31 +94,31 @@ public class UpdateOrganizedCrimes(
             var channelId = config.NotificationChannelId!.Value;
 
             var message = currentStatus == OrganizedCrimeStatus.Successful
-                ? await CreateSuccessfulMessageAsync(completedCrime, roleId)
-                : CreateFailureMessage(completedCrime, roleId);
+                ? await CreateSuccessfulMessageAsync(completedCrime)
+                : CreateFailureNotification(completedCrime);
 
-            await restClient.SendMessageAsync(channelId, message);
+            await notificationService.SendNotificationAsync(channelId, message, roleId);
             faction.OrganizedCrimes.Remove(trackedCrime);
         }
     }
 
-    private bool ValidateConfig(OrganizedCrimeModuleConfig? config, ulong guildId)
+    private bool ShouldSkip(OrganizedCrimeModuleConfig? config, ulong guildId)
     {
         if (config == null)
         {
-            logger.LogWarning($"No organized crimes config found for guild: {guildId}");
+            Logger.LogWarning("No organized crimes config found for guild: {GuildId}", guildId);
             return true;
         }
 
         if (config.NotificationState == ModuleState.Disabled)
         {
-            logger.LogWarning($"OC notifications disabled for guild: {guildId}");
+            Logger.LogDebug("OC notifications disabled for guild: {GuildId}", guildId);
             return true;
         }
 
         if (config.NotificationChannelId == null)
         {
-            logger.LogWarning($"No notification channel id found for guild: {guildId}");
+            Logger.LogWarning("No notification channel id found for guild: {GuildId}", guildId);
             return true;
         }
 
@@ -144,60 +127,34 @@ public class UpdateOrganizedCrimes(
 
     private static EmbedProperties CreateNewCrimeEmbed(FactionCrime crime)
     {
-        var stringBuilder = new StringBuilder();
-
-        foreach (var sg in crime.Slots.GroupBy(s => s.Position))
-        {
-            stringBuilder.AppendLine($"{sg.First().Position}: x{sg.Count()}");
-        }
-
         return new EmbedProperties
         {
             Fields =
             [
                 new() { Name = "Crime", Value = crime.Name },
                 new() { Name = "Difficulty", Value = crime.Difficulty.ToString() },
-                new() { Name = "Slots", Value = stringBuilder.ToString() }
+                new() { Name = "Slots", Value = FormatSlots(crime.Slots) }
             ]
         };
     }
 
-    private static MessageProperties CreateNewCrimeMessage(IEnumerable<EmbedProperties> embeds,
-        ulong ocNotificationRoleId)
+    private async Task<MessageProperties> CreateSuccessfulMessageAsync(FactionCrime crime)
     {
-        return new MessageProperties
-        {
-            Content = $"<@&{ocNotificationRoleId}>",
-            Embeds = embeds.ToList(),
-        };
-    }
-
-    private async Task<MessageProperties> CreateSuccessfulMessageAsync(FactionCrime crime, ulong ocNotificationRoleId)
-    {
-        var stringBuilder = new StringBuilder();
-
-        foreach (var sg in crime.Slots.GroupBy(s => s.Position))
-        {
-            stringBuilder.AppendLine($"{sg.First().Position}: x{sg.Count()}");
-        }
+        var players = await Task.WhenAll(crime.Slots
+            .Select(slot => client.GetUserProfileById(slot.User!.Id)));
 
         var playerStringBuilder = new StringBuilder();
-        foreach (var slot in crime.Slots)
+        foreach (var player in players)
         {
-            var player = await client.GetUserProfileById(slot.User!.Id);
-            if (player == null)
-            {
-                playerStringBuilder.AppendLine("Unknown player");
-                continue;
-            }
-
-            playerStringBuilder.AppendLine($"[{player.Name}]({ShortUrlHelper.GetProfileUrl(player.Id)})");
+            playerStringBuilder.AppendLine(player == null
+                ? "Unknown player"
+                : $"[{player.Name}]({ShortUrlHelper.GetProfileUrl(player.Id)})");
         }
 
         var rewardsStringBuilder = new StringBuilder();
         if (crime.Rewards.Money > 0)
         {
-            rewardsStringBuilder.AppendLine($"{crime.Rewards.Money.ToString("C0", new CultureInfo("en-US"))}");
+            rewardsStringBuilder.AppendLine(crime.Rewards.Money.ToString("C0", Culture));
         }
 
         var itemsInfo = await client.GetItemsInfoAsync(crime.Rewards.Items.Select(i => i.Id));
@@ -206,7 +163,8 @@ public class UpdateOrganizedCrimes(
             var itemInfoDict = itemsInfo.ToDictionary(i => i.Id);
             foreach (var item in crime.Rewards.Items)
             {
-                rewardsStringBuilder.AppendLine($"{itemInfoDict[item.Id].Name} x {item.Quantity}");
+                var name = itemInfoDict.TryGetValue(item.Id, out var info) ? info.Name : "Unknown item";
+                rewardsStringBuilder.AppendLine($"{name} x {item.Quantity}");
             }
         }
         else
@@ -221,7 +179,6 @@ public class UpdateOrganizedCrimes(
         var durationString = duration.HasValue ? $"{duration.Value.Days} days and {duration.Value.Hours} hours" : "/";
         return new MessageProperties
         {
-            Content = $"<@&{ocNotificationRoleId}>",
             Embeds =
             [
                 new EmbedProperties
@@ -236,7 +193,7 @@ public class UpdateOrganizedCrimes(
                         {
                             Name = "Success chance",
                             Value =
-                                $"{CalculateSuccessChance(crime.Slots.Select(c => c.Cpr)).ToString("F2", new CultureInfo("en-US"))}%"
+                                $"{CalculateSuccessChance(crime.Slots.Select(c => c.Cpr)).ToString("F2", Culture)}%"
                         },
                         new() { Name = "Rewards", Value = rewardsStringBuilder.ToString() }
                     ]
@@ -245,11 +202,10 @@ public class UpdateOrganizedCrimes(
         };
     }
 
-    private static MessageProperties CreateFailureMessage(FactionCrime crime, ulong ocNotificationRoleId)
+    private static MessageProperties CreateFailureNotification(FactionCrime crime)
     {
         return new MessageProperties
         {
-            Content = $"<@&{ocNotificationRoleId}>",
             Embeds =
             [
                 new EmbedProperties
@@ -262,7 +218,7 @@ public class UpdateOrganizedCrimes(
                         {
                             Name = "Success chance",
                             Value =
-                                $"{CalculateSuccessChance(crime.Slots.Select(c => c.Cpr)).ToString("P2", new CultureInfo("en-US"))}%"
+                                $"{CalculateSuccessChance(crime.Slots.Select(c => c.Cpr)).ToString("F2", Culture)}%"
                         }
                     ]
                 }
@@ -273,7 +229,15 @@ public class UpdateOrganizedCrimes(
     private static double CalculateSuccessChance(IEnumerable<int> percentages)
     {
         var percentageList = percentages.ToList();
-        var total = percentageList.Sum();
-        return (double)total / (percentageList.Count);
+        if (percentageList.Count == 0) return 0;
+
+        return (double)percentageList.Sum() / percentageList.Count;
+    }
+
+    private static string FormatSlots(IEnumerable<FactionCrimeSlot> slots)
+    {
+        return string.Join(Environment.NewLine, slots
+            .GroupBy(s => s.Position)
+            .Select(g => $"{g.Key}: x{g.Count()}"));
     }
 }
