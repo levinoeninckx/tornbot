@@ -18,7 +18,7 @@ public class FactionCrime
     public int CreatedAt { get; set; }
 
     [JsonPropertyName("planning_at")]
-    public int PlanningAt { get; set; }
+    public int? PlanningAt { get; set; }
 
     [JsonPropertyName("executed_at")]
     public int? ExecutedAt { get; set; }
