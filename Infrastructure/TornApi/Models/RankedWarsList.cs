@@ -1,4 +1,4 @@
-namespace FactionBot.Infrastructure.TornApi.Models;
+namespace TornBot.Bot.Infrastructure.TornApi.Models;
 
 public class FactionRankedWarsResponse
 {
@@ -12,5 +12,5 @@ public class RankedWarSummary
     public int? End { get; set; }
     public int Target { get; set; }
     public int? Winner { get; set; }
-    public List<Faction> Factions { get; set; } = [];
+    public List<TornFaction> Factions { get; set; } = [];
 }

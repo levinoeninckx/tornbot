@@ -1,12 +1,10 @@
-using System.Net.Http.Json;
-using discordBotTest.Features.Chains;
-using FactionBot.Infrastructure.TornApi;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using NetCord.Rest;
 using TornBot.Bot.Infrastructure.TornApi;
+using TornBot.Bot.Infrastructure.TornApi.Models;
+using TornBot.Bot.Shared;
 
-namespace discordBotTest.Shared;
+namespace TornBot.Bot.Features.Chains;
 
 public class ChainService : BackgroundService
 {
@@ -25,35 +23,38 @@ public class ChainService : BackgroundService
     {
         var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
 
-        while(await timer.WaitForNextTickAsync(stoppingToken))
+        while (await timer.WaitForNextTickAsync(stoppingToken))
         {
             var channelid = _channelService.GetChannelId(TrackingChannel.Chain);
 
-            if(!channelid.HasValue) continue;
+            if (!channelid.HasValue) continue;
 
             var chain = await _apiClient.GetChainStateAsync(stoppingToken);
-            
-            if(chain.Timeout == 0) continue;
 
-            if(chain.Cooldown > 0)
+            if (chain.Timeout == 0) continue;
+
+            if (chain.Cooldown > 0)
             {
-                await _restClient.SendMessageAsync(channelid.Value, $"Chain dropped at {chain.Current} hits", cancellationToken: stoppingToken);
+                await _restClient.SendMessageAsync(channelid.Value, $"Chain dropped at {chain.Current} hits",
+                    cancellationToken: stoppingToken);
             }
 
-            if(chain.Timeout <= 90)
+            if (chain.Timeout <= 90)
             {
                 var message = CreateDropWarningMessage<MessageProperties>(chain);
 
                 if (message.Content == null)
                     throw new InvalidOperationException("Message content is null");
-                
+
                 await _restClient.SendMessageAsync(channelid.Value, message.Content, cancellationToken: stoppingToken);
             }
 
-            if((float)chain.Current / chain.Max >= 0.85)
+            if ((float)chain.Current / chain.Max >= 0.85)
             {
                 await _restClient
-                    .SendMessageAsync(channelid.Value, $"Approaching {chain.Max} bonus hit, {chain.Max - chain.Current} hits left", cancellationToken: stoppingToken);
+                    .SendMessageAsync(channelid.Value,
+                        $"Approaching {chain.Max} bonus hit, {chain.Max - chain.Current} hits left",
+                        cancellationToken: stoppingToken);
             }
         }
     }
@@ -65,7 +66,7 @@ public class ChainService : BackgroundService
             Title = "Chain drop warning",
             Description = $"The chain of {chain.Current} hits will break in {chain.Timeout} seconds"
         };
-        
+
         var message = new T
         {
             Embeds = [embedProperties],
@@ -73,6 +74,7 @@ public class ChainService : BackgroundService
 
         return message;
     }
+
     private T CreateMessage<T>(string content) where T : IMessageProperties, new()
     {
         var message = new T

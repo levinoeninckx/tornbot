@@ -1,4 +1,4 @@
-namespace discordBotTest.Shared;
+namespace TornBot.Bot.Shared;
 
 public enum TrackingChannel
 {
