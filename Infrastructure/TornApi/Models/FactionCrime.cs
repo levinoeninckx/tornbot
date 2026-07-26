@@ -15,24 +15,19 @@ public class FactionCrime
     public string Status { get; set; } = "";
 
     [JsonPropertyName("created_at")]
-    [JsonConverter(typeof(UnixTimestampConverter))]
-    public DateTime CreatedAt { get; set; }
+    public ulong CreatedAt { get; set; }
 
     [JsonPropertyName("planning_at")]
-    [JsonConverter(typeof(UnixTimestampConverter))]
-    public DateTime? PlanningAt { get; set; }
+    public ulong PlanningAt { get; set; }
 
     [JsonPropertyName("executed_at")]
-    [JsonConverter(typeof(UnixTimestampConverter))]
-    public DateTime? ExecutedAt { get; set; }
+    public ulong? ExecutedAt { get; set; }
 
     [JsonPropertyName("ready_at")]
-    [JsonConverter(typeof(UnixTimestampConverter))]
-    public DateTime? ReadyAt { get; set; }
+    public ulong? ReadyAt { get; set; }
 
     [JsonPropertyName("expired_at")]
-    [JsonConverter(typeof(UnixTimestampConverter))]
-    public DateTime ExpiredAt { get; set; }
+    public ulong ExpiredAt { get; set; }
 
     public FactionCrimeSlot[] Slots { get; set; } = [];
     public FactionCrimeReward Rewards { get; set; }
