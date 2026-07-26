@@ -177,7 +177,7 @@ public class UpdateOrganizedCrimes(
         rewardsStringBuilder.AppendLine($"{crime.Rewards.Respect} respect");
         rewardsStringBuilder.AppendLine($"{crime.Rewards.Scope} scope");
 
-        var duration = TimeSpan.FromSeconds(Convert.ToInt64(crime.ExecutedAt - crime.CreatedAt));
+        var duration = TimeSpan.FromSeconds(Convert.ToInt32(crime.ExecutedAt - crime.CreatedAt));
         var durationString = duration.TotalSeconds > 0 ? $"{duration.Days} days and {duration.Hours} hours" : "/";
         return new MessageProperties
         {
