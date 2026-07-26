@@ -28,5 +28,7 @@ public class NotificationService(RestClient restClient, ILogger<NotificationServ
             var batch = embeds.Skip(i).Take(MaxEmbedsPerMessage).ToList();
             await SendNotificationAsync(channelId, new MessageProperties { Embeds = batch }, roleId);
         }
+        
+        logger.LogInformation("Sent {EmbedCount} embeds to channel {ChannelId}", embeds.Count, channelId);
     }
 }

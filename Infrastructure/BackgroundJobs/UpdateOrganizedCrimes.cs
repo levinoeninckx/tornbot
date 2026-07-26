@@ -32,7 +32,7 @@ public class UpdateOrganizedCrimes(
     protected override async Task ProcessFactionAsync(Faction faction, CancellationToken ct)
     {
         var config = await repository.GetOrganizedCrimeModuleConfigByGuildId(faction.GuildId);
-        if (ShouldSkip(config, faction.GuildId)) return;
+        if (HasInvalidConfig(config, faction.GuildId)) return;
 
         var availableCrimes = await client.GetAvailableCrimesByGuildIdAsync(faction.GuildId, ct);
         if (availableCrimes is null)
@@ -49,8 +49,11 @@ public class UpdateOrganizedCrimes(
             Logger.LogError("Could not retrieve completed crimes for faction with id {FactionId}", faction.FactionId);
             return;
         }
-
-        await ProcessCompletedCrimes(faction, completedCrimes, config!);
+        
+        var completedTrackedCrimes = completedCrimes
+            .Where(c => faction.OrganizedCrimes.Any(crime => crime.CrimeId == c.Id))
+            .ToImmutableList();
+        await ProcessCompletedCrimes(faction, completedTrackedCrimes, config!);
     }
 
     private async Task ProcessAvailableCrimes(Faction faction, IEnumerable<FactionCrime> crimes,
@@ -68,10 +71,10 @@ public class UpdateOrganizedCrimes(
                 Status = Enum.Parse<OrganizedCrimeStatus>(c.Status)
             })
         );
-
+        
         var roleId = config.NotificationRoleId!.Value;
         var channelId = config.NotificationChannelId!.Value;
-        var embeds = untrackedCrimes.Select(CreateNewCrimeEmbed).ToList();
+        var embeds = untrackedCrimes.Select(CreateNewCrimeEmbed).ToImmutableList();
 
         await notificationService.SendEmbedsAsync(channelId, embeds, roleId);
     }
@@ -80,20 +83,19 @@ public class UpdateOrganizedCrimes(
         OrganizedCrimeModuleConfig config)
     {
         var completedCrimeDict = crimes.ToDictionary(c => c.Id);
-        var trackedCrimes = faction.OrganizedCrimes.ToList();
-
-        foreach (var trackedCrime in trackedCrimes)
+        
+        foreach (var trackedCrime in faction.OrganizedCrimes.ToList())
         {
             if (!completedCrimeDict.TryGetValue(trackedCrime.CrimeId, out var completedCrime)) continue;
 
-            var currentStatus = Enum.Parse<OrganizedCrimeStatus>(completedCrime.Status);
-            if (currentStatus != OrganizedCrimeStatus.Successful &&
-                currentStatus != OrganizedCrimeStatus.Failure) continue;
+            var crimeStatus = Enum.Parse<OrganizedCrimeStatus>(completedCrime.Status);
+            if (crimeStatus != OrganizedCrimeStatus.Successful &&
+                crimeStatus != OrganizedCrimeStatus.Failure) continue;
 
             var roleId = config.NotificationRoleId!.Value;
             var channelId = config.NotificationChannelId!.Value;
 
-            var message = currentStatus == OrganizedCrimeStatus.Successful
+            var message = crimeStatus == OrganizedCrimeStatus.Successful
                 ? await CreateSuccessfulMessageAsync(completedCrime)
                 : CreateFailureNotification(completedCrime);
 
@@ -102,7 +104,7 @@ public class UpdateOrganizedCrimes(
         }
     }
 
-    private bool ShouldSkip(OrganizedCrimeModuleConfig? config, ulong guildId)
+    private bool HasInvalidConfig(OrganizedCrimeModuleConfig? config, ulong guildId)
     {
         if (config == null)
         {
