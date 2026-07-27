@@ -33,11 +33,52 @@ public class UpdateRetalsJob(
 
     protected override async Task ProcessFactionAsync(Faction faction, CancellationToken ct)
     {
+        const int expiryTimeMinutes = 5;
         var retalConfig = await repository.GetRetalModuleConfigByGuildId(faction.GuildId);
         var expiredAttacks = faction.TrackedAttacks
-            .Where(a => DateTime.UtcNow - a.Timestamp > TimeSpan.FromMinutes(5))
+            .Where(a => DateTime.UtcNow - a.Timestamp > TimeSpan.FromMinutes(expiryTimeMinutes))
             .ToImmutableList();
 
+        await ProcessExpiredRetals(faction, ct, expiredAttacks, retalConfig);
+
+        var trackedAttacksIdHashSet = faction.TrackedAttacks.Select(a => a.AttackId).ToImmutableHashSet();
+        var incomingAttacks = await attackService.GetIncomingAttacks(faction.GuildId);
+        var validIncomingAttacks = incomingAttacks
+            .Where(a => a.Result is
+                AttackResult.Hospitalized or
+                AttackResult.Arrested or
+                AttackResult.Attacked or
+                AttackResult.Mugged or
+                AttackResult.Bounty or
+                AttackResult.Looted
+            )
+            .Where(a => !trackedAttacksIdHashSet.Contains((ulong)a.Id))
+            .Where(a => a.Attacker != null)
+            .Where(a => (DateTime.UtcNow - DateTimeOffset.FromUnixTimeSeconds(a.Ended).DateTime) <
+                        TimeSpan.FromMinutes(expiryTimeMinutes))
+            .OrderBy(a => a.Ended)
+            .ToImmutableList();
+
+        await ProcessIncomingAttacks(faction, validIncomingAttacks, retalConfig, ct);
+
+        var outgoingAttacks = await attackService.GetOutgoingAttacks(faction.GuildId);
+        var retalTargetDict = faction.TrackedAttacks
+            .GroupBy(a => a.TargetPlayerId)
+            .ToImmutableDictionary(a => a.Key);
+
+        var validOutgoingAttacks = outgoingAttacks
+            .Where(a => a.Result == AttackResult.Hospitalized)
+            .Where(a => retalTargetDict.Keys.Contains(a.Defender.Id))
+            .OrderBy(a => a.Ended)
+            .ToImmutableList();
+
+        await ProcessOutgoingAttacks(faction, ct, validOutgoingAttacks, retalTargetDict, retalConfig);
+    }
+
+    private async Task ProcessExpiredRetals(Faction faction, CancellationToken ct,
+        ImmutableList<RetalOpportunity> expiredAttacks,
+        RetalModuleConfig? retalConfig)
+    {
         await Parallel.ForEachAsync(expiredAttacks,
             new ParallelOptions { MaxDegreeOfParallelism = 5, CancellationToken = ct },
             async (expiredAttack, token) =>
@@ -62,65 +103,13 @@ public class UpdateRetalsJob(
 
         var expiredAttacksHashSet = expiredAttacks.Select(e => e.Id).ToHashSet();
         faction.TrackedAttacks.RemoveAll(a => expiredAttacksHashSet.Contains(a.Id));
+    }
 
-        var incomingAttacks = await attackService.GetIncomingAttacks(faction.GuildId);
-
-        var trackedAttacksIdHashSet = faction.TrackedAttacks.Select(a => a.AttackId).ToImmutableHashSet();
-
-        var validIncomingAttacks = incomingAttacks
-            .Where(a => !trackedAttacksIdHashSet.Contains((ulong)a.Id))
-            .Where(a => a.Attacker != null)
-            .ToImmutableList();
-
-        foreach (var incomingAttack in validIncomingAttacks)
-        {
-            var attackerProfile = await tornClient.GetUserProfileById(incomingAttack.Attacker!.Id, ct);
-            var defenderProfile = await tornClient.GetUserProfileById(incomingAttack.Defender.Id, ct);
-
-            if (attackerProfile == null || defenderProfile == null)
-            {
-                Logger.LogError(
-                    "Something went wrong requesting user info for: attacker {AttackerId}, defender {DefenderId}",
-                    incomingAttack.Attacker.Id, incomingAttack.Defender.Id);
-                return;
-            }
-
-            var attackerBattleStats = await battleStatService.GetUserBattlestatsById(attackerProfile.Id);
-            var retalMessage = await CreateRetalMessageAsync(incomingAttack.Result, attackerProfile, defenderProfile,
-                attackerBattleStats);
-
-            if (retalConfig == null)
-            {
-                Logger.LogWarning("Something went wrong while getting the retal config for guild id {GuildId}",
-                    faction.GuildId);
-                return;
-            }
-
-            if (!retalConfig.NotificationChannelId.HasValue || !retalConfig.NotificationRoleId.HasValue)
-            {
-                Logger.LogInformation("Notification channel or role not set for guild {GuildId}", faction.GuildId);
-                return;
-            }
-
-            var message = await notificationService.SendNotificationAsync(retalConfig.NotificationChannelId.Value,
-                retalMessage, retalConfig.NotificationRoleId);
-
-            var newRetalOpportunity = new RetalOpportunity()
-            {
-                AttackId = (ulong)incomingAttack.Id,
-                MessageId = message.Id,
-                TargetPlayerId = incomingAttack.Attacker.Id
-            };
-
-            faction.TrackedAttacks.Add(newRetalOpportunity);
-        }
-
-        var outgoingAttacks = await attackService.GetOutgoingAttacks(faction.GuildId);
-        var retalTargetDict = faction.TrackedAttacks
-            .GroupBy(a => a.TargetPlayerId)
-            .ToImmutableDictionary(a => a.Key);
-
-        foreach (var outgoingAttack in outgoingAttacks.Where(a => retalTargetDict.Keys.Contains(a.Defender.Id)))
+    private async Task ProcessOutgoingAttacks(Faction faction, CancellationToken ct,
+        ImmutableList<AttackFull> validOutgoingAttacks,
+        ImmutableDictionary<long, IGrouping<long, RetalOpportunity>> retalTargetDict, RetalModuleConfig? retalConfig)
+    {
+        foreach (var outgoingAttack in validOutgoingAttacks)
         {
             var retalOpportunities = retalTargetDict[outgoingAttack.Defender.Id];
 
@@ -162,6 +151,53 @@ public class UpdateRetalsJob(
 
                 faction.TrackedAttacks.Remove(opportunity);
             }
+        }
+    }
+
+    private async Task ProcessIncomingAttacks(Faction faction, ImmutableList<AttackFull> validIncomingAttacks,
+        RetalModuleConfig? retalConfig, CancellationToken ct)
+    {
+        foreach (var incomingAttack in validIncomingAttacks)
+        {
+            var attackerProfile = await tornClient.GetUserProfileById(incomingAttack.Attacker!.Id, ct);
+            var defenderProfile = await tornClient.GetUserProfileById(incomingAttack.Defender.Id, ct);
+
+            if (attackerProfile == null || defenderProfile == null)
+            {
+                Logger.LogError(
+                    "Something went wrong requesting user info for: attacker {AttackerId}, defender {DefenderId}",
+                    incomingAttack.Attacker.Id, incomingAttack.Defender.Id);
+                continue;
+            }
+
+            var attackerBattleStats = await battleStatService.GetUserBattlestatsById(attackerProfile.Id);
+            var retalMessage = await CreateRetalMessageAsync(incomingAttack.Result, attackerProfile, defenderProfile,
+                attackerBattleStats);
+
+            if (retalConfig == null)
+            {
+                Logger.LogWarning("Something went wrong while getting the retal config for guild id {GuildId}",
+                    faction.GuildId);
+                continue;
+            }
+
+            if (!retalConfig.NotificationChannelId.HasValue || !retalConfig.NotificationRoleId.HasValue)
+            {
+                Logger.LogInformation("Notification channel or role not set for guild {GuildId}", faction.GuildId);
+                continue;
+            }
+
+            var message = await notificationService.SendNotificationAsync(retalConfig.NotificationChannelId.Value,
+                retalMessage, retalConfig.NotificationRoleId);
+
+            var newRetalOpportunity = new RetalOpportunity()
+            {
+                AttackId = (ulong)incomingAttack.Id,
+                MessageId = message.Id,
+                TargetPlayerId = incomingAttack.Attacker.Id
+            };
+
+            faction.TrackedAttacks.Add(newRetalOpportunity);
         }
     }
 

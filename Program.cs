@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NetCord;
@@ -25,10 +24,7 @@ using TornBot.Bot.Shared;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-if (builder.Environment.IsDevelopment())
-{
-    builder.Configuration.AddUserSecrets<Program>();
-}
+Log.Logger.Information("Environment: {Environment}", builder.Environment.EnvironmentName);
 
 builder.Services.AddSerilog(configure =>
 {
