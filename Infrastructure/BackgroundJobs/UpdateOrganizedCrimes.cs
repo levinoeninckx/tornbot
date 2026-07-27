@@ -49,7 +49,7 @@ public class UpdateOrganizedCrimes(
             Logger.LogError("Could not retrieve completed crimes for faction with id {FactionId}", faction.FactionId);
             return;
         }
-        
+
         var completedTrackedCrimes = completedCrimes
             .Where(c => faction.OrganizedCrimes.Any(crime => crime.CrimeId == c.Id))
             .ToImmutableList();
@@ -71,7 +71,7 @@ public class UpdateOrganizedCrimes(
                 Status = Enum.Parse<OrganizedCrimeStatus>(c.Status)
             })
         );
-        
+
         var roleId = config.NotificationRoleId!.Value;
         var channelId = config.NotificationChannelId!.Value;
         var embeds = untrackedCrimes.Select(CreateNewCrimeEmbed).ToImmutableList();
@@ -83,7 +83,7 @@ public class UpdateOrganizedCrimes(
         OrganizedCrimeModuleConfig config)
     {
         var completedCrimeDict = crimes.ToDictionary(c => c.Id);
-        
+
         foreach (var trackedCrime in faction.OrganizedCrimes.ToList())
         {
             if (!completedCrimeDict.TryGetValue(trackedCrime.CrimeId, out var completedCrime)) continue;
@@ -108,19 +108,19 @@ public class UpdateOrganizedCrimes(
     {
         if (config == null)
         {
-            Logger.LogWarning("No organized crimes config found for guild: {GuildId}", guildId);
+            Logger.LogInformation("No organized crimes config found for guild: {GuildId}", guildId);
             return true;
         }
 
         if (config.NotificationState == ModuleState.Disabled)
         {
-            Logger.LogDebug("OC notifications disabled for guild: {GuildId}", guildId);
+            Logger.LogInformation("OC notifications disabled for guild: {GuildId}", guildId);
             return true;
         }
 
         if (config.NotificationChannelId == null)
         {
-            Logger.LogWarning("No notification channel id found for guild: {GuildId}", guildId);
+            Logger.LogInformation("No notification channel id found for guild: {GuildId}", guildId);
             return true;
         }
 

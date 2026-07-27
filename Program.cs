@@ -64,11 +64,7 @@ builder.Services.AddQuartz(q =>
 
     q.ScheduleJob<UpdateOrganizedCrimes>(t =>
         t.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
-    q.ScheduleJob<GetIncomingAttacks>(trigger =>
-        trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
-    q.ScheduleJob<GetOutgoingAttacks>(trigger =>
-        trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
-    q.ScheduleJob<CheckExpiredRetals>(trigger =>
+    q.ScheduleJob<UpdateRetalsJob>(trigger =>
         trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
 });
 
