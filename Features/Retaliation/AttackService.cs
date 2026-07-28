@@ -12,40 +12,56 @@ public class AttackService(HttpClient httpClient, ApiKeyService apiKeyService, I
         var key = await apiKeyService.GetLimitedApiKeyAsync(guildId, hasFactionAccess: true);
         if (key == null)
         {
-            logger.LogWarning($"No available limited key with faction api access");
-            return Array.Empty<AttackFull>();
+            logger.LogInformation("No available limited key with faction api access");
+            return [];
         }
 
         var response = await httpClient.GetAsync($"?filters=incoming&limit=1000&sort=DESC&key={key}");
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            logger.LogError("Torn API error: {StatusCode} - {Body}", response.StatusCode, body);
+            return [];
+        }
+
         var attacksFullResponse = await response.Content.ReadFromJsonAsync<AttacksFullResponse>();
 
         if (attacksFullResponse == null)
         {
-            logger.LogWarning("Response was empty, something went wrong accessing the torn api");
-            return Array.Empty<AttackFull>();
+            logger.LogError("Response was empty, something went wrong accessing the torn api");
+            return [];
         }
-        
+
         return attacksFullResponse.Attacks;
     }
-    
+
     public async Task<IReadOnlyList<AttackFull>> GetOutgoingAttacks(ulong guildId)
     {
         var key = await apiKeyService.GetLimitedApiKeyAsync(guildId, hasFactionAccess: true);
         if (key == null)
         {
             logger.LogWarning($"No available limited key with faction api access");
-            return Array.Empty<AttackFull>();
+            return [];
         }
 
         var response = await httpClient.GetAsync($"?filters=outgoing&limit=1000&sort=DESC&key={key}");
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            logger.LogError("Torn API error: {StatusCode} - {Body}", response.StatusCode, body);
+            return [];
+        }
+
         var attacksFullResponse = await response.Content.ReadFromJsonAsync<AttacksFullResponse>();
 
         if (attacksFullResponse == null)
         {
-            logger.LogWarning("Response was empty, something went wrong accessing the torn api");
-            return Array.Empty<AttackFull>();
+            logger.LogError("Response was empty, something went wrong accessing the torn api");
+            return [];
         }
-        
+
         return attacksFullResponse.Attacks;
     }
 }

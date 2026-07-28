@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NetCord;
@@ -25,10 +24,7 @@ using TornBot.Bot.Shared;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-if (builder.Environment.IsDevelopment())
-{
-    builder.Configuration.AddUserSecrets<Program>();
-}
+Log.Logger.Information("Environment: {Environment}", builder.Environment.EnvironmentName);
 
 builder.Services.AddSerilog(configure =>
 {
@@ -64,11 +60,7 @@ builder.Services.AddQuartz(q =>
 
     q.ScheduleJob<UpdateOrganizedCrimes>(t =>
         t.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
-    q.ScheduleJob<GetIncomingAttacks>(trigger =>
-        trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
-    q.ScheduleJob<GetOutgoingAttacks>(trigger =>
-        trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
-    q.ScheduleJob<CheckExpiredRetals>(trigger =>
+    q.ScheduleJob<UpdateRetalsJob>(trigger =>
         trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
 });
 
