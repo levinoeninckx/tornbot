@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NetCord;
 using NetCord.Rest;
 using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
@@ -214,7 +215,7 @@ public class UpdateOrganizedCrimes(
                 {
                     Fields =
                     [
-                        new() { Name = "Crime", Value = crime.Name },
+                        new() { Name = "Crime", Value = $"{crime.Name} failed" },
                         new() { Name = "Difficulty", Value = crime.Difficulty.ToString() },
                         new()
                         {
@@ -222,7 +223,8 @@ public class UpdateOrganizedCrimes(
                             Value =
                                 $"{CalculateSuccessChance(crime.Slots.Select(c => c.Cpr)).ToString("F2", Culture)}%"
                         }
-                    ]
+                    ],
+                    Color = new Color(255, 0, 0)
                 }
             ],
         };
