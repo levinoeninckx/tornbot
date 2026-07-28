@@ -39,7 +39,7 @@ public class UpdateRetalsJob(
             .Where(a => DateTime.UtcNow - a.Timestamp > TimeSpan.FromMinutes(expiryTimeMinutes))
             .ToImmutableList();
 
-        await ProcessExpiredRetals(faction, ct, expiredAttacks, retalConfig);
+        await ProcessExpiredRetals(faction, expiredAttacks, retalConfig, ct);
 
         var trackedAttacksIdHashSet = faction.TrackedAttacks.Select(a => a.AttackId).ToImmutableHashSet();
         var incomingAttacks = await attackService.GetIncomingAttacks(faction.GuildId);
@@ -72,42 +72,40 @@ public class UpdateRetalsJob(
             .OrderBy(a => a.Ended)
             .ToImmutableList();
 
-        await ProcessOutgoingAttacks(faction, ct, validOutgoingAttacks, retalTargetDict, retalConfig);
+        await ProcessOutgoingAttacks(faction, validOutgoingAttacks, retalTargetDict, retalConfig, ct);
     }
 
-    private async Task ProcessExpiredRetals(Faction faction, CancellationToken ct,
-        ImmutableList<RetalOpportunity> expiredAttacks,
-        RetalModuleConfig? retalConfig)
+    private async Task ProcessExpiredRetals(Faction faction, ImmutableList<RetalOpportunity> expiredAttacks,
+        RetalModuleConfig? retalConfig, CancellationToken ct)
     {
-        await Parallel.ForEachAsync(expiredAttacks,
-            new ParallelOptions { MaxDegreeOfParallelism = 5, CancellationToken = ct },
-            async (expiredAttack, token) =>
-            {
-                var message = await restClient.GetMessageAsync(retalConfig!.NotificationChannelId!.Value,
-                    expiredAttack.MessageId, cancellationToken: token);
-                await restClient.ModifyMessageAsync(retalConfig.NotificationChannelId!.Value, expiredAttack.MessageId,
-                    messageProperties =>
-                    {
-                        messageProperties.Embeds =
-                        [
-                            new EmbedProperties
-                            {
-                                Title = "Retal Expired",
-                                Description = message.Embeds[0].Description,
-                                Color = new Color(255, 0, 0),
-                            }
-                        ];
-                        messageProperties.Components = [];
-                    }, cancellationToken: token);
-            });
+        foreach (var expiredAttack in expiredAttacks)
+        {
+            var message = await restClient.GetMessageAsync(retalConfig!.NotificationChannelId!.Value,
+                expiredAttack.MessageId, cancellationToken: ct);
+
+            await restClient.ModifyMessageAsync(retalConfig.NotificationChannelId!.Value, expiredAttack.MessageId,
+                messageProperties =>
+                {
+                    messageProperties.Embeds =
+                    [
+                        new EmbedProperties
+                        {
+                            Title = "Retal Expired",
+                            Description = message.Embeds[0].Description,
+                            Color = new Color(255, 0, 0),
+                        }
+                    ];
+                    messageProperties.Components = [];
+                }, cancellationToken: ct);
+        }
 
         var expiredAttacksHashSet = expiredAttacks.Select(e => e.Id).ToHashSet();
         faction.TrackedAttacks.RemoveAll(a => expiredAttacksHashSet.Contains(a.Id));
     }
 
-    private async Task ProcessOutgoingAttacks(Faction faction, CancellationToken ct,
-        ImmutableList<AttackFull> validOutgoingAttacks,
-        ImmutableDictionary<long, IGrouping<long, RetalOpportunity>> retalTargetDict, RetalModuleConfig? retalConfig)
+    private async Task ProcessOutgoingAttacks(Faction faction, ImmutableList<AttackFull> validOutgoingAttacks,
+        ImmutableDictionary<long, IGrouping<long, RetalOpportunity>> retalTargetDict, RetalModuleConfig? retalConfig,
+        CancellationToken ct)
     {
         foreach (var outgoingAttack in validOutgoingAttacks)
         {
