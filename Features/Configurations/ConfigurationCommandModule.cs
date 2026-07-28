@@ -1,10 +1,8 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
-using Quartz;
 using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Infrastructure;
@@ -16,10 +14,8 @@ namespace TornBot.Bot.Features.Configurations;
 [SlashCommand("configure", "Configure command", DefaultGuildPermissions = Permissions.Administrator,
     Contexts = [InteractionContextType.Guild])]
 public class ConfigurationCommandModule(
-    ModuleConfigRepository moduleConfigRepository,
     TornApiClient client,
     IDbContextFactory<TornbotContext> contextFactory,
-    ISchedulerFactory schedulerFactory,
     ILogger<ConfigurationCommandModule> logger
 )
     : ApplicationCommandModule<ApplicationCommandContext>
@@ -29,68 +25,55 @@ public class ConfigurationCommandModule(
         [SlashCommandParameter(Name = "key", Description = "Initial api key to register faction, can be public")]
         string apiKey)
     {
-        if (Context.Guild == null)
-        {
-            logger.LogWarning("Guild is null");
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
-        }
-
-        await using var context = await contextFactory.CreateDbContextAsync();
-        var isRegistered = await context.Factions.AnyAsync(f => f.GuildId == Context.Guild.Id);
-
-        if (isRegistered)
-        {
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Faction already registered");
-        }
-
-        var keyInfo = await client.GetKeyInfoAsync(apiKey);
-        if (keyInfo == null) return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Invalid API key");
-
-        var initialKey = new ApiKey(keyInfo.User.Id, apiKey, AccessLevel.Public);
-        var faction = new Faction()
-        {
-            GuildId = Context.Guild.Id,
-            FactionId = keyInfo.User.FactionId,
-            ApiKeys = [initialKey],
-            ModuleConfigs =
-            [
-                new ModuleConfig()
-                {
-                    Module = Module.Verification,
-                    Config = JsonDocument.Parse(JsonSerializer.Serialize(new VerificationConfig()))
-                }
-            ]
-        };
-
-        context.Factions.Add(faction);
-
         try
         {
+            if (Context.Guild == null)
+            {
+                logger.LogWarning("Guild is null");
+                return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
+            }
+
+            await using var context = await contextFactory.CreateDbContextAsync();
+            var isRegistered = await context.Factions.AnyAsync(f => f.GuildId == Context.Guild.Id);
+
+            if (isRegistered)
+            {
+                return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Faction already registered");
+            }
+
+            var keyInfo = await client.GetKeyInfoAsync(apiKey);
+            if (keyInfo == null)
+                return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Invalid API key");
+
+            var initialKey = new ApiKey(keyInfo.User.Id, apiKey, AccessLevel.Public);
+
+            var userFaction = await client.GetUserFactionAsync(keyInfo.User.Id);
+            if (userFaction == null)
+            {
+                return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                    "Something went wrong while processing your request. Please try again later.");
+            }
+
+            var faction = new Faction(userFaction.Id, Context.Guild.Id);
+            faction.ApiKeys.Add(initialKey);
+
+            context.Factions.Add(faction);
             await context.SaveChangesAsync();
+
+            return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success",
+                $"Faction {userFaction.Name} registered");
         }
         catch (Exception ex)
         {
             logger.LogCritical(ex, "Failed to save faction");
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to save faction");
         }
-
-        await SetOcTriggersAsync();
-
-        var factionBasic = await client.GetFactionBasicAsync(faction.FactionId);
-        if (factionBasic == null)
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to get faction information");
-
-        return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success",
-            $"Faction {factionBasic.Name} registered");
     }
 
     [SubSlashCommand("verification", "configure the verification module")]
     public async Task<InteractionMessageProperties> ConfigureVerification()
     {
-        await using var context = await contextFactory.CreateDbContextAsync();
-        var faction = await context.Factions
-            .Include(f => f.ModuleConfigs)
-            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+        var faction = await GetFactionAsync();
 
         if (faction == null)
         {
@@ -98,8 +81,7 @@ public class ConfigurationCommandModule(
                 "register faction first with /configure faction");
         }
 
-        var config = faction.ModuleConfigs!.Single(c => c.Module == Module.Verification).Config
-            .Deserialize<VerificationConfig>();
+        var config = faction.VerificationModuleConfig;
 
         if (config == null)
         {
@@ -139,10 +121,26 @@ public class ConfigurationCommandModule(
             );
     }
 
+    private async Task<Faction?> GetFactionAsync()
+    {
+        await using var context = await contextFactory.CreateDbContextAsync();
+        var faction = await context.Factions
+            .Include(f => f.ModuleConfigs)
+            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+        return faction;
+    }
+
     [SubSlashCommand("banking", "configure the banking module")]
     public async Task<InteractionMessageProperties> ConfigureBanking()
     {
-        var bankingConfig = await moduleConfigRepository.GetBankingModuleConfigByGuildId(Context.Guild!.Id);
+        var faction = await GetFactionAsync();
+        if (faction == null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                "register faction first with /configure faction");
+        }
+
+        var bankingConfig = faction.BankingModuleConfig;
 
         if (bankingConfig == null)
         {
@@ -168,7 +166,14 @@ public class ConfigurationCommandModule(
     [SubSlashCommand("oc", "configure the OC module")]
     public async Task<InteractionMessageProperties> ConfigureOc()
     {
-        var ocConfig = await moduleConfigRepository.GetOrganizedCrimeModuleConfigByGuildId(Context.Guild!.Id);
+        var faction = await GetFactionAsync();
+        if (faction == null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                "register faction first with /configure faction");
+        }
+
+        var ocConfig = faction.OrganizedCrimeModuleConfig;
         if (ocConfig == null)
         {
             return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Oops",
@@ -212,7 +217,14 @@ public class ConfigurationCommandModule(
     [SubSlashCommand("retaliation", "set up the retaliation module")]
     public async Task<InteractionMessageProperties> ConfigureRetaliation()
     {
-        var config = await moduleConfigRepository.GetRetalModuleConfigByGuildId(Context.Guild!.Id);
+        var faction = await GetFactionAsync();
+        if (faction == null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                "register faction first with /configure faction");
+        }
+
+        var config = faction.RetalModuleConfig;
 
         if (config == null)
         {
@@ -239,31 +251,5 @@ public class ConfigurationCommandModule(
                         ? [config.NotificationChannelId!.Value]
                         : null)
             );
-    }
-
-    [SubSlashCommand("notifications", "set up the background tasks for notifications")]
-    public async Task<InteractionMessageProperties> ConfigureNotifications()
-    {
-        await SetOcTriggersAsync();
-        return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", "Background tasks set up");
-    }
-
-    private async Task SetOcTriggersAsync()
-    {
-        var scheduler = await schedulerFactory.GetScheduler();
-
-        var trigger = await scheduler.GetTrigger(new TriggerKey($"oc-trigger-{Context.Guild!.Id}"));
-        if (trigger != null)
-            return;
-
-        var ocTrigger = TriggerBuilder.Create()
-            .WithIdentity($"oc-trigger-{Context.Guild!.Id}")
-            .WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever())
-            .StartAt(DateTimeOffset.UtcNow.AddSeconds(20))
-            .ForJob(new JobKey("GetNewCrimes", "OC"))
-            .UsingJobData("guildId", Context.Guild!.Id.ToString())
-            .Build();
-
-        await scheduler.ScheduleJob(ocTrigger);
     }
 }

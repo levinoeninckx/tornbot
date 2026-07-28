@@ -7,5 +7,5 @@ public class BankingModuleConfig
     public HashSet<ulong> AllowedRoleIds { get; set; } = [];
     public HashSet<ulong> RestrictedChannelIds { get; set; } = [];
     public ulong? BankerRoleId { get; set; }
-    public ModuleState State { get; set; }
+    public ModuleState State { get; set; } = ModuleState.Disabled;
 }

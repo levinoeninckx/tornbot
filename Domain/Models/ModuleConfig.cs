@@ -3,7 +3,7 @@ using TornBot.Bot.Domain.Enums;
 
 namespace TornBot.Bot.Domain.Models;
 
-public class ModuleConfig
+public class ModuleConfig(Module module, JsonDocument config)
 {
     public int Id { get; set; }
     public Module Module { get; set; }

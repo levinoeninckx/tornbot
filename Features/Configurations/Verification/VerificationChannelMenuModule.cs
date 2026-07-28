@@ -10,7 +10,8 @@ using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Configurations.Verification;
 
-public class VerificationChannelMenuModule(TornbotContext context, ILogger<VerificationChannelMenuModule> logger) : ComponentInteractionModule<ChannelMenuInteractionContext>
+public class VerificationChannelMenuModule(TornbotContext context, ILogger<VerificationChannelMenuModule> logger)
+    : ComponentInteractionModule<ChannelMenuInteractionContext>
 {
     [ComponentInteraction("auto_verification_channel")]
     public async Task SetAutoVerificationChannel()
@@ -19,21 +20,22 @@ public class VerificationChannelMenuModule(TornbotContext context, ILogger<Verif
         {
             return;
         }
-        
+
         var faction = await context.Factions
             .Include(f => f.ModuleConfigs)
             .SingleOrDefaultAsync(f => f.GuildId == Context.Guild.Id);
 
         if (faction == null)
         {
-            var msg = MessageFactory.CreateErrorMessage<InteractionMessageProperties>("register faction first with /configure faction");
+            var msg = MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                "register faction first with /configure faction");
             await Context.Interaction.SendFollowupMessageAsync(msg);
             await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
             return;
         }
-        
+
         var moduleConfig = faction.ModuleConfigs.SingleOrDefault(c => c.Module == Module.Verification);
-        var config = moduleConfig?.Config.Deserialize<VerificationConfig>();
+        var config = moduleConfig?.Config.Deserialize<VerificationModuleConfig>();
 
         if (config == null || moduleConfig == null)
         {
@@ -42,7 +44,7 @@ public class VerificationChannelMenuModule(TornbotContext context, ILogger<Verif
             await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
             return;
         }
-        
+
         config.AutoVerificationChannelId = Context.SelectedValues.SingleOrDefault()?.Id ?? 0;
         moduleConfig.Config = JsonDocument.Parse(JsonSerializer.Serialize(config));
 
@@ -53,7 +55,8 @@ public class VerificationChannelMenuModule(TornbotContext context, ILogger<Verif
         catch (Exception ex)
         {
             logger.LogCritical(ex, "Failed to save module config");
-            await Context.Interaction.SendFollowupMessageAsync(MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to save module config"));
+            await Context.Interaction.SendFollowupMessageAsync(
+                MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to save module config"));
         }
 
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
@@ -66,21 +69,22 @@ public class VerificationChannelMenuModule(TornbotContext context, ILogger<Verif
         {
             return;
         }
-        
+
         var faction = await context.Factions
             .Include(f => f.ModuleConfigs)
             .SingleOrDefaultAsync(f => f.GuildId == Context.Guild.Id);
 
         if (faction == null)
         {
-            var msg = MessageFactory.CreateErrorMessage<InteractionMessageProperties>("register faction first with /configure faction");
+            var msg = MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                "register faction first with /configure faction");
             await Context.Interaction.SendFollowupMessageAsync(msg);
             await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
             return;
         }
-        
+
         var moduleConfig = faction.ModuleConfigs.SingleOrDefault(c => c.Module == Module.Verification);
-        var config = moduleConfig?.Config.Deserialize<VerificationConfig>();
+        var config = moduleConfig?.Config.Deserialize<VerificationModuleConfig>();
 
         if (config == null || moduleConfig == null)
         {
@@ -89,7 +93,7 @@ public class VerificationChannelMenuModule(TornbotContext context, ILogger<Verif
             await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
             return;
         }
-        
+
         config.RestrictedChannelIds = Context.SelectedValues.Select(x => x.Id).ToHashSet();
         moduleConfig.Config = JsonDocument.Parse(JsonSerializer.Serialize(config));
 
@@ -100,7 +104,8 @@ public class VerificationChannelMenuModule(TornbotContext context, ILogger<Verif
         catch (Exception ex)
         {
             logger.LogCritical(ex, "Failed to save module config");
-            await Context.Interaction.SendFollowupMessageAsync(MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to save module config"));
+            await Context.Interaction.SendFollowupMessageAsync(
+                MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to save module config"));
         }
 
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);

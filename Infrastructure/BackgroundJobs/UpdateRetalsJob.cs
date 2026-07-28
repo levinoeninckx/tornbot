@@ -17,7 +17,6 @@ public class UpdateRetalsJob(
     BattleStatService battleStatService,
     RestClient restClient,
     NotificationService notificationService,
-    ModuleConfigRepository repository,
     TornApiClient tornClient,
     AttackService attackService,
     IDbContextFactory<TornbotContext> contextFactory,
@@ -34,7 +33,7 @@ public class UpdateRetalsJob(
     protected override async Task ProcessFactionAsync(Faction faction, CancellationToken ct)
     {
         const int expiryTimeMinutes = 5;
-        var retalConfig = await repository.GetRetalModuleConfigByGuildId(faction.GuildId);
+        var retalConfig = faction.RetalModuleConfig;
         var expiredAttacks = faction.TrackedAttacks
             .Where(a => DateTime.UtcNow - a.Timestamp > TimeSpan.FromMinutes(expiryTimeMinutes))
             .ToImmutableList();

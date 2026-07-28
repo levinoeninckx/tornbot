@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
@@ -16,48 +17,68 @@ namespace TornBot.Bot.Features.Banking;
 [RequireBankingAllowedRoles]
 [RequireBankingChannel]
 [SlashCommand("banking", "Commands to interact with the banking system", Contexts = [InteractionContextType.Guild])]
-public class BankingCommandModule(TornApiClient client, ILogger<BankingCommandModule> logger, ModuleConfigRepository moduleConfigRepository) : ApplicationCommandModule<ApplicationCommandContext>
+public class BankingCommandModule(
+    TornApiClient client,
+    IDbContextFactory<TornbotContext> contextFactory,
+    ILogger<BankingCommandModule> logger) : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("request", "put in a request for x amount")]
-    public async Task<InteractionMessageProperties> BankRequest([SlashCommandParameter(Description = "Amount to request (e.g. 10k, 2.5m, 1b)", TypeReaderType = typeof(AmountTypeReader))] long amount)
+    public async Task<InteractionMessageProperties> BankRequest(
+        [SlashCommandParameter(Description = "Amount to request (e.g. 10k, 2.5m, 1b)",
+            TypeReaderType = typeof(AmountTypeReader))]
+        long amount)
     {
-        
         if (Context.Guild == null)
         {
             logger.LogWarning("Guild is null");
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("something went wrong while processing your request. Please try again later.");
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                "something went wrong while processing your request. Please try again later.");
         }
-        
-        var bankingModuleConfig = await moduleConfigRepository.GetBankingModuleConfigByGuildId(Context.Guild.Id);
+
+        await using var context = await contextFactory.CreateDbContextAsync();
+        var faction = await context.Factions
+            .Include(f => f.ModuleConfigs)
+            .FirstOrDefaultAsync(f => f.GuildId == Context.Guild.Id);
+
+        if (faction == null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Faction not registered");
+        }
+
+        var bankingModuleConfig = faction.BankingModuleConfig;
         if (bankingModuleConfig == null)
         {
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Something went wrong while processing your request. Please try again later.");
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Module configuration not found");
         }
-            
+
         var user = Context.User as GuildUser;
-        
-        if(user == null)
+
+        if (user == null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
         }
 
-        var memberBalance = await client.GetMemberFactionBalanceByIdAsync(Context.Guild!.Id ,user.Id);
+        var memberBalance = await client.GetMemberFactionBalanceByIdAsync(Context.Guild!.Id, user.Id);
         if (memberBalance == null)
         {
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Something went wrong while processing your request. Please try again later.");
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                "Something went wrong while processing your request. Please try again later.");
         }
-        
-        if(memberBalance.Money < amount)
-        { 
-            return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Insufficient funds",$"You only have {memberBalance.Money.ToString("C0", CultureInfo.CreateSpecificCulture("en-US"))}");
+
+        if (memberBalance.Money < amount)
+        {
+            return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Insufficient funds",
+                $"You only have {memberBalance.Money.ToString("C0", CultureInfo.CreateSpecificCulture("en-US"))}");
         }
 
         if (!bankingModuleConfig.BankerRoleId.HasValue)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Banker role not set");
         }
-        
-        var message = await CreateMessageAsync<InteractionMessageProperties>(bankingModuleConfig.BankerRoleId.Value, user.Id, amount);
+
+        var message =
+            await CreateMessageAsync<InteractionMessageProperties>(bankingModuleConfig.BankerRoleId.Value, user.Id,
+                amount);
 
         return message;
     }
@@ -68,29 +89,34 @@ public class BankingCommandModule(TornApiClient client, ILogger<BankingCommandMo
         var balance = await client.GetMemberFactionBalanceByIdAsync(Context.Guild!.Id, Context.User.Id);
         if (balance == null)
         {
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Something went wrong while processing your request. Please try again later.");
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                "Something went wrong while processing your request. Please try again later.");
         }
-        
-        return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Balance", $"You currently have {balance.Money.ToString("C0", CultureInfo.CreateSpecificCulture("en-US"))} in your faction bank");
+
+        return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Balance",
+            $"You currently have {balance.Money.ToString("C0", CultureInfo.CreateSpecificCulture("en-US"))} in your faction bank");
     }
 
-    private async Task<T> CreateMessageAsync<T>(ulong bankerRoleId, ulong requesteeId, long amount) where T : IMessageProperties, new()
+    private async Task<T> CreateMessageAsync<T>(ulong bankerRoleId, ulong requesteeId, long amount)
+        where T : IMessageProperties, new()
     {
         var requestee = await client.GetUserProfileByDiscordId(requesteeId);
         var embed = new EmbedProperties()
         {
             Title = "Banking request",
-            Description = $"<@&{bankerRoleId}> [{requestee.Name}]({ShortUrlHelper.GetProfileUrl(requestee.Id)}) requested to withdraw some funds from the faction bank",
+            Description =
+                $"<@&{bankerRoleId}> [{requestee.Name}]({ShortUrlHelper.GetProfileUrl(requestee.Id)}) requested to withdraw some funds from the faction bank",
         };
 
-        var acceptButton = new ButtonProperties($"accept_request:{requesteeId}:{amount}", "Accept", ButtonStyle.Success);
+        var acceptButton =
+            new ButtonProperties($"accept_request:{requesteeId}:{amount}", "Accept", ButtonStyle.Success);
         var cancelButton = new ButtonProperties($"cancel_request:{requesteeId}", "Cancel", ButtonStyle.Danger);
 
         return new T
         {
             Embeds = [embed],
             AllowedMentions = new AllowedMentionsProperties { AllowedRoles = [bankerRoleId] },
-            Components = [new ActionRowProperties{ Components = [acceptButton, cancelButton ]}]
+            Components = [new ActionRowProperties { Components = [acceptButton, cancelButton] }]
         };
     }
 }

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NetCord;
 using NetCord.Services;
@@ -8,7 +9,8 @@ namespace TornBot.Bot.Features.OrganizedCrime;
 
 public class RequireOrganizedCrimesAllowedRoles : PreconditionAttribute<ApplicationCommandContext>
 {
-    public override async ValueTask<PreconditionResult> EnsureCanExecuteAsync(ApplicationCommandContext context, IServiceProvider? serviceProvider)
+    public override async ValueTask<PreconditionResult> EnsureCanExecuteAsync(ApplicationCommandContext context,
+        IServiceProvider? serviceProvider)
     {
         if (serviceProvider == null)
         {
@@ -16,11 +18,20 @@ public class RequireOrganizedCrimesAllowedRoles : PreconditionAttribute<Applicat
         }
 
         using var scope = serviceProvider.CreateScope();
-        
-        var configRepository = scope.ServiceProvider.GetRequiredService<ModuleConfigRepository>();
 
-        var organizedCrimConfig = await configRepository.GetOrganizedCrimeModuleConfigByGuildId(context.Guild!.Id);
-        
+        var configRepository = scope.ServiceProvider.GetRequiredService<IDbContextFactory<TornbotContext>>();
+        await using var dbContext = await configRepository.CreateDbContextAsync();
+        var faction = await dbContext.Factions
+            .Include(f => f.ModuleConfigs)
+            .FirstOrDefaultAsync(f => f.GuildId == context.Guild!.Id);
+
+        if (faction == null)
+        {
+            return PreconditionResult.Fail("Faction not registered");
+        }
+
+        var organizedCrimConfig = faction.OrganizedCrimeModuleConfig;
+
         if (organizedCrimConfig == null)
         {
             return PreconditionResult.Fail("Organized crime module is not configured for this guild.");
@@ -32,12 +43,12 @@ public class RequireOrganizedCrimesAllowedRoles : PreconditionAttribute<Applicat
         }
 
         var userRoles = ((GuildUser)context.User).RoleIds;
-        
-        if(!userRoles.Any(r => organizedCrimConfig.AllowedRoleIds.Contains(r)))
+
+        if (!userRoles.Any(r => organizedCrimConfig.AllowedRoleIds.Contains(r)))
         {
             return PreconditionResult.Fail("You are not allowed to use this command.");
         }
-        
+
         return PreconditionResult.Success;
     }
 }

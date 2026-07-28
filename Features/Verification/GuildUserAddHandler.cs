@@ -11,7 +11,11 @@ using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Verification;
 
-public class GuildUserAddHandler(VerificationService verificationService, IDbContextFactory<TornbotContext> contextFactory, RestClient client, ILogger<GuildUserAddHandler> logger) : IGuildUserAddGatewayHandler
+public class GuildUserAddHandler(
+    VerificationService verificationService,
+    IDbContextFactory<TornbotContext> contextFactory,
+    RestClient client,
+    ILogger<GuildUserAddHandler> logger) : IGuildUserAddGatewayHandler
 {
     public async ValueTask HandleAsync(GuildUser guildUser)
     {
@@ -22,14 +26,17 @@ public class GuildUserAddHandler(VerificationService verificationService, IDbCon
 
         if (faction == null)
         {
-            logger.LogWarning($"faction not found for guild {guildUser.GuildId}, needs to be registered with /configure bot");
+            logger.LogWarning(
+                $"faction not found for guild {guildUser.GuildId}, needs to be registered with /configure bot");
             return;
         }
-        
-        var config = faction.ModuleConfigs.Single(c => c.Module == Module.Verification).Config.Deserialize<VerificationConfig>();
+
+        var config = faction.ModuleConfigs.Single(c => c.Module == Module.Verification).Config
+            .Deserialize<VerificationModuleConfig>();
         if (config == null)
         {
-            logger.LogWarning($"faction not found for guild {guildUser.GuildId}, needs to be registered with /configure bot");
+            logger.LogWarning(
+                $"faction not found for guild {guildUser.GuildId}, needs to be registered with /configure bot");
             return;
         }
 
@@ -39,10 +46,11 @@ public class GuildUserAddHandler(VerificationService verificationService, IDbCon
             await client
                 .SendMessageAsync(config.AutoVerificationChannelId,
                     MessageFactory
-                        .CreateDefaultMessage<MessageProperties>("Verification failed","Failed to verify automatically, make sure you have joined the official Torn discord then use the /verify command"));
+                        .CreateDefaultMessage<MessageProperties>("Verification failed",
+                            "Failed to verify automatically, make sure you have joined the official Torn discord then use the /verify command"));
             return;
         }
-        
+
         await client
             .SendMessageAsync(config.AutoVerificationChannelId,
                 MessageFactory.CreateDefaultMessage<MessageProperties>("User verified",

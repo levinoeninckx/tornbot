@@ -17,7 +17,6 @@ namespace TornBot.Bot.Infrastructure.BackgroundJobs;
 public class UpdateOrganizedCrimes(
     TornApiClient client,
     IDbContextFactory<TornbotContext> contextFactory,
-    ModuleConfigRepository repository,
     NotificationService notificationService,
     ILogger<UpdateOrganizedCrimes> logger
 ) : FactionJob<UpdateOrganizedCrimes>(contextFactory, logger)
@@ -27,14 +26,13 @@ public class UpdateOrganizedCrimes(
     protected override Task<List<Faction>> LoadFactionsAsync(TornbotContext dbContext, CancellationToken ct)
     {
         return dbContext.Factions
-            .Include(f => f.OrganizedCrimes)
+            .Include(f => f.FactionCrimes)
             .ToListAsync(ct);
     }
 
     protected override async Task ProcessFactionAsync(Faction faction, CancellationToken ct)
     {
-        var config = await repository.GetOrganizedCrimeModuleConfigByGuildId(faction.GuildId);
-        if (HasInvalidConfig(config, faction.GuildId)) return;
+        var config = faction.OrganizedCrimeModuleConfig;
 
         var availableCrimes = await client.GetAvailableCrimesByGuildIdAsync(faction.GuildId, ct);
         if (availableCrimes is null)
@@ -53,7 +51,7 @@ public class UpdateOrganizedCrimes(
         }
 
         var completedTrackedCrimes = completedCrimes
-            .Where(c => faction.OrganizedCrimes.Any(crime => crime.CrimeId == c.Id))
+            .Where(c => faction.FactionCrimes.Any(crime => crime.CrimeId == c.Id))
             .ToImmutableList();
         await ProcessCompletedCrimes(faction, completedTrackedCrimes, config!);
     }
@@ -61,12 +59,12 @@ public class UpdateOrganizedCrimes(
     private async Task ProcessAvailableCrimes(Faction faction, IEnumerable<TornApi.Models.FactionCrime> crimes,
         OrganizedCrimeModuleConfig config)
     {
-        var trackedCrimeIds = faction.OrganizedCrimes.Select(c => c.CrimeId).ToImmutableHashSet();
+        var trackedCrimeIds = faction.FactionCrimes.Select(c => c.CrimeId).ToImmutableHashSet();
         var untrackedCrimes = crimes
             .Where(c => !trackedCrimeIds.Contains(c.Id))
             .ToList();
 
-        faction.OrganizedCrimes.AddRange(untrackedCrimes
+        faction.FactionCrimes.AddRange(untrackedCrimes
             .Select(c => new FactionCrime
             {
                 CrimeId = c.Id,
@@ -86,7 +84,7 @@ public class UpdateOrganizedCrimes(
     {
         var completedCrimeDict = crimes.ToDictionary(c => c.Id);
 
-        foreach (var trackedCrime in faction.OrganizedCrimes.ToList())
+        foreach (var trackedCrime in faction.FactionCrimes.ToList())
         {
             if (!completedCrimeDict.TryGetValue(trackedCrime.CrimeId, out var completedCrime)) continue;
 
@@ -102,7 +100,7 @@ public class UpdateOrganizedCrimes(
                 : CreateFailureNotification(completedCrime);
 
             await notificationService.SendNotificationAsync(channelId, message, roleId);
-            faction.OrganizedCrimes.Remove(trackedCrime);
+            faction.FactionCrimes.Remove(trackedCrime);
         }
     }
 

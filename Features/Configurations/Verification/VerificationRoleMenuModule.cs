@@ -10,21 +10,26 @@ using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Configurations.Verification;
 
-public class VerificationRoleMenuModule(TornbotContext context, ILogger<VerificationRoleMenuModule> logger) : ComponentInteractionModule<RoleMenuInteractionContext>
+public class VerificationRoleMenuModule(TornbotContext context, ILogger<VerificationRoleMenuModule> logger)
+    : ComponentInteractionModule<RoleMenuInteractionContext>
 {
     [ComponentInteraction("default_verification_roles")]
-    public Task SetDefaultVerificationRoles() => UpdateVerificationConfigAsync(config => config.DefaultRoleIds = [.. Context.SelectedValues.Select(r => r.Id)]);
+    public Task SetDefaultVerificationRoles() => UpdateVerificationConfigAsync(config =>
+        config.DefaultRoleIds = [.. Context.SelectedValues.Select(r => r.Id)]);
 
     [ComponentInteraction("verification_faction_roles")]
-    public Task SetFactionRoles() => UpdateVerificationConfigAsync(config => config.FactionRoleIds = [.. Context.SelectedValues.Select(r => r.Id)]);
+    public Task SetFactionRoles() => UpdateVerificationConfigAsync(config => config.FactionRoleIds =
+        [.. Context.SelectedValues.Select(r => r.Id)]);
 
     [ComponentInteraction("verification_non_faction_roles")]
-    public Task SetNonFactionRoles() => UpdateVerificationConfigAsync(config => config.NonFactionRoleIds = [.. Context.SelectedValues.Select(r => r.Id)]);
+    public Task SetNonFactionRoles() => UpdateVerificationConfigAsync(config => config.NonFactionRoleIds =
+        [.. Context.SelectedValues.Select(r => r.Id)]);
 
     [ComponentInteraction("verification_required_roles")]
-    public Task SetAllowedRoles() => UpdateVerificationConfigAsync(config => config.AllowedRoleIds = [.. Context.SelectedValues.Select(r => r.Id)]);
+    public Task SetAllowedRoles() => UpdateVerificationConfigAsync(config => config.AllowedRoleIds =
+        [.. Context.SelectedValues.Select(r => r.Id)]);
 
-    private async Task UpdateVerificationConfigAsync(Action<VerificationConfig> updateAction)
+    private async Task UpdateVerificationConfigAsync(Action<VerificationModuleConfig> updateAction)
     {
         if (Context.Guild == null) return;
 
@@ -34,12 +39,14 @@ public class VerificationRoleMenuModule(TornbotContext context, ILogger<Verifica
 
         if (faction == null)
         {
-            await Context.Interaction.SendResponseAsync(InteractionCallback.Message(MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Please register this faction with /configure bot")));
+            await Context.Interaction.SendResponseAsync(InteractionCallback.Message(
+                MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                    "Please register this faction with /configure bot")));
             return;
         }
 
         var moduleConfig = faction.ModuleConfigs.SingleOrDefault(c => c.Module == Module.Verification);
-        var config = moduleConfig?.Config.Deserialize<VerificationConfig>();
+        var config = moduleConfig?.Config.Deserialize<VerificationModuleConfig>();
 
         if (config == null || moduleConfig == null) return;
 
@@ -53,7 +60,8 @@ public class VerificationRoleMenuModule(TornbotContext context, ILogger<Verifica
         catch (Exception ex)
         {
             logger.LogCritical(ex, "Failed to save verification roles");
-            var msg = MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to save verification roles");
+            var msg = MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                "Failed to save verification roles");
             await Context.Interaction.SendFollowupMessageAsync(msg);
             await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
             return;

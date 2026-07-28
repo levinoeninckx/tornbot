@@ -9,12 +9,7 @@ public class FactionService(IDbContextFactory<TornbotContext> contextFactory)
     public async Task<bool> AddFactionAsync(int factionId, ulong guildId)
     {
         await using var context = await contextFactory.CreateDbContextAsync();
-        var faction = new Faction
-        {
-            FactionId = factionId,
-            GuildId = guildId,
-            CreatedAt = DateTime.UtcNow
-        };
+        var faction = new Faction(factionId, guildId);
 
         try
         {

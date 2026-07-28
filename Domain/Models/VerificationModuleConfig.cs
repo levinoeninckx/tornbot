@@ -2,7 +2,7 @@ using TornBot.Bot.Domain.Enums;
 
 namespace TornBot.Bot.Domain.Models;
 
-public class VerificationConfig
+public class VerificationModuleConfig
 {
     public ModuleState Enabled { get; set; } = ModuleState.Enabled;
     public HashSet<ulong> DefaultRoleIds { get; set; } = [];

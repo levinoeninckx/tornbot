@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NetCord.Services;
 using NetCord.Services.ApplicationCommands;
@@ -7,7 +8,8 @@ namespace TornBot.Bot.Features.OrganizedCrime;
 
 public class RequireOrganizedCrimeRestrictedChannels : PreconditionAttribute<ApplicationCommandContext>
 {
-    public override async ValueTask<PreconditionResult> EnsureCanExecuteAsync(ApplicationCommandContext context, IServiceProvider? serviceProvider)
+    public override async ValueTask<PreconditionResult> EnsureCanExecuteAsync(ApplicationCommandContext context,
+        IServiceProvider? serviceProvider)
     {
         if (serviceProvider == null)
         {
@@ -15,9 +17,19 @@ public class RequireOrganizedCrimeRestrictedChannels : PreconditionAttribute<App
         }
 
         using var scope = serviceProvider.CreateScope();
-        var repository = scope.ServiceProvider.GetRequiredService<ModuleConfigRepository>();
-        
-        var organizedCrimeConfig = await repository.GetOrganizedCrimeModuleConfigByGuildId(context.Guild!.Id);
+        var repository = scope.ServiceProvider.GetRequiredService<IDbContextFactory<TornbotContext>>();
+        await using var dbContext = await repository.CreateDbContextAsync();
+
+        var faction = await dbContext.Factions
+            .Include(f => f.ModuleConfigs)
+            .FirstOrDefaultAsync(f => f.GuildId == context.Guild!.Id);
+
+        if (faction == null)
+        {
+            return PreconditionResult.Fail("Faction not registered");
+        }
+
+        var organizedCrimeConfig = faction.OrganizedCrimeModuleConfig;
         if (organizedCrimeConfig == null)
         {
             return PreconditionResult.Fail("Organized crime module is not configured for this guild.");
@@ -27,12 +39,12 @@ public class RequireOrganizedCrimeRestrictedChannels : PreconditionAttribute<App
         {
             return PreconditionResult.Success;
         }
-        
+
         if (!organizedCrimeConfig.RestrictedChannelIds.Contains(context.Channel.Id))
         {
             return PreconditionResult.Fail("You are not allowed to use this command in this channel.");
         }
-        
+
         return PreconditionResult.Success;
     }
 }

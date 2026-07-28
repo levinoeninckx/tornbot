@@ -11,7 +11,11 @@ using TornBot.Bot.Infrastructure.TornApi.Models;
 
 namespace TornBot.Bot.Features.Verification;
 
-public class VerificationService(IDbContextFactory<TornbotContext> contextFactory, TornApiClient client, RestClient restClient, ILogger<VerificationService> logger)
+public class VerificationService(
+    IDbContextFactory<TornbotContext> contextFactory,
+    TornApiClient client,
+    RestClient restClient,
+    ILogger<VerificationService> logger)
 {
     public async Task<Profile?> VerifyGuildUserAsync(GuildUser guildUser)
     {
@@ -33,7 +37,7 @@ public class VerificationService(IDbContextFactory<TornbotContext> contextFactor
         }
 
         var verificationModule = faction.ModuleConfigs.SingleOrDefault(c => c.Module == Module.Verification);
-        var config = verificationModule?.Config.Deserialize<VerificationConfig>();
+        var config = verificationModule?.Config.Deserialize<VerificationModuleConfig>();
 
         if (config == null)
         {
@@ -42,7 +46,7 @@ public class VerificationService(IDbContextFactory<TornbotContext> contextFactor
         }
 
         var userFaction = await client.GetUserFactionAsync(profile.Id);
-        
+
         List<ulong> roleIds = [.. config.DefaultRoleIds];
         if (userFaction?.Id == faction.FactionId)
         {
@@ -53,7 +57,7 @@ public class VerificationService(IDbContextFactory<TornbotContext> contextFactor
             roleIds.AddRange(config.NonFactionRoleIds);
         }
 
-        await restClient.ModifyGuildUserAsync(guildId, userId, properties => 
+        await restClient.ModifyGuildUserAsync(guildId, userId, properties =>
         {
             properties.WithNickname(nickname);
             properties.WithRoleIds(roleIds.Distinct());
