@@ -10,6 +10,7 @@ using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Infrastructure.TornApi.Models;
 using TornBot.Bot.Shared;
+using FactionCrime = TornBot.Bot.Domain.Models.FactionCrime;
 
 namespace TornBot.Bot.Infrastructure.BackgroundJobs;
 
@@ -57,7 +58,7 @@ public class UpdateOrganizedCrimes(
         await ProcessCompletedCrimes(faction, completedTrackedCrimes, config!);
     }
 
-    private async Task ProcessAvailableCrimes(Faction faction, IEnumerable<FactionCrime> crimes,
+    private async Task ProcessAvailableCrimes(Faction faction, IEnumerable<TornApi.Models.FactionCrime> crimes,
         OrganizedCrimeModuleConfig config)
     {
         var trackedCrimeIds = faction.OrganizedCrimes.Select(c => c.CrimeId).ToImmutableHashSet();
@@ -66,7 +67,7 @@ public class UpdateOrganizedCrimes(
             .ToList();
 
         faction.OrganizedCrimes.AddRange(untrackedCrimes
-            .Select(c => new OrganizedCrime
+            .Select(c => new FactionCrime
             {
                 CrimeId = c.Id,
                 Status = Enum.Parse<OrganizedCrimeStatus>(c.Status)
@@ -80,7 +81,7 @@ public class UpdateOrganizedCrimes(
         await notificationService.SendEmbedsAsync(channelId, embeds, roleId);
     }
 
-    private async Task ProcessCompletedCrimes(Faction faction, IEnumerable<FactionCrime> crimes,
+    private async Task ProcessCompletedCrimes(Faction faction, IEnumerable<TornApi.Models.FactionCrime> crimes,
         OrganizedCrimeModuleConfig config)
     {
         var completedCrimeDict = crimes.ToDictionary(c => c.Id);
@@ -128,7 +129,7 @@ public class UpdateOrganizedCrimes(
         return false;
     }
 
-    private static EmbedProperties CreateNewCrimeEmbed(FactionCrime crime)
+    private static EmbedProperties CreateNewCrimeEmbed(TornApi.Models.FactionCrime crime)
     {
         return new EmbedProperties
         {
@@ -141,7 +142,7 @@ public class UpdateOrganizedCrimes(
         };
     }
 
-    private async Task<MessageProperties> CreateSuccessfulMessageAsync(FactionCrime crime)
+    private async Task<MessageProperties> CreateSuccessfulMessageAsync(TornApi.Models.FactionCrime crime)
     {
         var players = await Task.WhenAll(crime.Slots
             .Select(slot => client.GetUserProfileById(slot.User!.Id)));
@@ -205,7 +206,7 @@ public class UpdateOrganizedCrimes(
         };
     }
 
-    private static MessageProperties CreateFailureNotification(FactionCrime crime)
+    private static MessageProperties CreateFailureNotification(TornApi.Models.FactionCrime crime)
     {
         return new MessageProperties
         {
