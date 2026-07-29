@@ -13,6 +13,7 @@ using Serilog;
 using Serilog.Core;
 using Serilog.Events;
 using TornBot.Bot.Features.Chains;
+using TornBot.Bot.Features.Configurations;
 using TornBot.Bot.Features.Retaliation;
 using TornBot.Bot.Features.Verification;
 using TornBot.Bot.Infrastructure;
@@ -102,6 +103,7 @@ builder.Services.AddTransient<NotificationService>();
 builder.Services.AddSingleton<ChannelService>();
 builder.Services.AddSingleton<FactionService>();
 builder.Services.AddTransient<BattleStatService>();
+builder.Services.AddTransient<ConfigurationService>();
 
 // Set backgroundservices
 builder.Services.AddHostedService<ChainService>();

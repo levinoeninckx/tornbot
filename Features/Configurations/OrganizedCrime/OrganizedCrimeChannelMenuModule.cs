@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using NetCord.Rest;
 using NetCord.Services.ComponentInteractions;
 using TornBot.Bot.Domain.Enums;
@@ -7,21 +8,14 @@ using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Configurations.OrganizedCrime;
 
-public class OrganizedCrimeChannelMenuModule(ModuleConfigRepository repository) : ComponentInteractionModule<ChannelMenuInteractionContext>
+public class OrganizedCrimeChannelMenuModule(ConfigurationService configurationService) : ComponentInteractionModule<ChannelMenuInteractionContext>
 {
     [ComponentInteraction("oc_restricted_channels")]
     public async Task SetRestrictedChannels()
     {
-        var config = await repository.GetOrganizedCrimeModuleConfigByGuildId(Context.Guild!.Id);
-        if (config == null)
-        {
-            var msg = MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Module configuration not found");
-            await Context.Interaction.SendResponseAsync(InteractionCallback.Message(msg));
-        }
-
-        config!.RestrictedChannelIds = Context.SelectedValues.Select(x => x.Id).ToHashSet();
-        var jsonDoc = JsonDocument.Parse(JsonSerializer.Serialize(config));
-        await repository.UpdateModuleConfig(Context.Guild!.Id, Module.OrganizedCrime, jsonDoc);
+        var restrictedChannelIds = Context.SelectedValues.Select(x => x.Id).ToHashSet();
+        await configurationService.UpdateOrganizedCrimeConfigByGuildIdAsync(Context.Guild!.Id,
+            config => config!.RestrictedChannelIds = restrictedChannelIds);
         
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
     }
@@ -29,16 +23,11 @@ public class OrganizedCrimeChannelMenuModule(ModuleConfigRepository repository) 
     [ComponentInteraction("oc_notification_channel")]
     public async Task SetNotificationChannel()
     {
-        var config = await repository.GetOrganizedCrimeModuleConfigByGuildId(Context.Guild!.Id);
-        if (config == null)
-        {
-            var msg = MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Module configuration not found");
-            await Context.Interaction.SendResponseAsync(InteractionCallback.Message(msg));
-        }
-
-        config!.NotificationChannelId = Context.SelectedValues.Select(x => x.Id).SingleOrDefault();
-        var jsonDoc = JsonDocument.Parse(JsonSerializer.Serialize(config));
-        await repository.UpdateModuleConfig(Context.Guild!.Id, Module.OrganizedCrime, jsonDoc);
+        var notificationChannelId = Context.SelectedValues.Select(x => x.Id).SingleOrDefault();
+        
+        await configurationService
+            .UpdateOrganizedCrimeConfigByGuildIdAsync(Context.Guild!.Id,
+                config => config!.NotificationChannelId = notificationChannelId);
         
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
     }
