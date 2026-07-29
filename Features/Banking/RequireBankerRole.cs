@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NetCord;
 using NetCord.Rest;
@@ -19,10 +20,15 @@ public class RequireBankerRole : PreconditionAttribute<ButtonInteractionContext>
         }
 
         using var scope = serviceProvider.CreateScope();
-        var repository = scope.ServiceProvider.GetRequiredService<ModuleConfigRepository>();
+        var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<TornbotContext>>();
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+        var faction = await dbContext.Factions.GetFactionByGuildIdAsync(context.Guild!.Id, includeModuleConfigs: true);
+        if (faction == null)
+        {
+            return PreconditionResult.Fail("Faction not found.");
+        }
 
-        var bankingConfig = await repository.GetBankingModuleConfigByGuildId(context.Guild!.Id);
-        
+        var bankingConfig = faction.BankingModuleConfig;
         if (bankingConfig == null)
         {
             return PreconditionResult.Fail("Banking module config not found.");

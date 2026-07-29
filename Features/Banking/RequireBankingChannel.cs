@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NetCord.Services;
 using NetCord.Services.ApplicationCommands;
@@ -15,9 +16,16 @@ public class RequireBankingChannel : PreconditionAttribute<ApplicationCommandCon
         }
 
         using var scope = serviceProvider.CreateScope();
-        var repository = scope.ServiceProvider.GetRequiredService<ModuleConfigRepository>();
+        var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<TornbotContext>>();
         
-        var bankingConfig = await repository.GetBankingModuleConfigByGuildId(context.Guild!.Id);
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+        var faction = await dbContext.Factions.GetFactionByGuildIdAsync(context.Guild!.Id);
+        if (faction == null)
+        {
+            return PreconditionResult.Fail("Faction not found.");
+        }
+        
+        var bankingConfig = faction.BankingModuleConfig;
         if (bankingConfig == null)
         {
             return PreconditionResult.Fail("Banking module is not configured for this guild.");

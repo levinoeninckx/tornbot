@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NetCord;
 using NetCord.Services;
@@ -17,9 +18,15 @@ public class RequireBankingAllowedRoles : PreconditionAttribute<ApplicationComma
 
         using var scope = serviceProvider.CreateScope();
         
-        var configRepository = scope.ServiceProvider.GetRequiredService<ModuleConfigRepository>();
-
-        var bankingConfig = await configRepository.GetBankingModuleConfigByGuildId(context.Guild!.Id);
+        var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<TornbotContext>>();
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+        var faction = await dbContext.Factions.GetFactionByGuildIdAsync(context.Guild!.Id);
+        if (faction == null)
+        {
+            return PreconditionResult.Fail("Faction not found.");
+        }
+        
+        var bankingConfig = faction.BankingModuleConfig;
         
         if (bankingConfig == null)
         {
