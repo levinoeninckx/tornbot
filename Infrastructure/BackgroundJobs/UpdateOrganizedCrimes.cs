@@ -134,7 +134,7 @@ public class UpdateOrganizedCrimes(
         {
             Fields =
             [
-                new() { Name = "Crime", Value = crime.Name },
+                new() { Name = "New Crime", Value = crime.Name },
                 new() { Name = "Difficulty", Value = crime.Difficulty.ToString() },
                 new() { Name = "Slots", Value = FormatSlots(crime.Slots) }
             ],
@@ -189,7 +189,7 @@ public class UpdateOrganizedCrimes(
                 {
                     Fields =
                     [
-                        new() { Name = "Crime", Value = crime.Name },
+                        new() { Name = "Crime Success", Value = crime.Name },
                         new() { Name = "Difficulty", Value = crime.Difficulty.ToString() },
                         new() { Name = "Duration", Value = durationString },
                         new() { Name = "Players", Value = playerStringBuilder.ToString() },
@@ -217,7 +217,7 @@ public class UpdateOrganizedCrimes(
                 {
                     Fields =
                     [
-                        new() { Name = "Crime", Value = $"{crime.Name} failed" },
+                        new() { Name = "Crime failed", Value = $"{crime.Name}" },
                         new() { Name = "Difficulty", Value = crime.Difficulty.ToString() },
                         new()
                         {
