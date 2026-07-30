@@ -155,8 +155,6 @@ public class UpdateRetalsJob(
                         ];
                         messageProperties.Components = [];
                     }, cancellationToken: ct);
-
-                faction.TrackedAttacks.Remove(opportunity);
             }
         }
     }
