@@ -137,7 +137,8 @@ public class UpdateOrganizedCrimes(
                 new() { Name = "Crime", Value = crime.Name },
                 new() { Name = "Difficulty", Value = crime.Difficulty.ToString() },
                 new() { Name = "Slots", Value = FormatSlots(crime.Slots) }
-            ]
+            ],
+            Color = new Color(0, 0, 255)
         };
     }
 
@@ -199,7 +200,8 @@ public class UpdateOrganizedCrimes(
                                 $"{CalculateSuccessChance(crime.Slots.Select(c => c.Cpr)).ToString("F2", Culture)}%"
                         },
                         new() { Name = "Rewards", Value = rewardsStringBuilder.ToString() }
-                    ]
+                    ],
+                    Color = new Color(0, 255, 0)
                 }
             ],
         };
