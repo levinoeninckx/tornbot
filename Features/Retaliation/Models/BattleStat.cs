@@ -14,6 +14,7 @@ public class BattleStat
     
     public BattleStat(ulong strength, ulong defense, ulong speed, ulong dexterity)
     {
+        Estimate = strength + defense + speed + dexterity;
         Details = new BattleStatDetails(strength, defense, speed, dexterity);
     }
     
