@@ -13,13 +13,15 @@ using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Infrastructure.BackgroundJobs;
 
+// TODO: make use of facade pattern to reduce dependencies
+// TODO: maybe create extension methods for RestClient class for sending notifications
 public class UpdateRetalsJob(
     BattleStatService battleStatService,
+    TornApiClient tornClient,
+    AttackService attackService,
     RestClient restClient,
     NotificationService notificationService,
     ModuleConfigRepository repository,
-    TornApiClient tornClient,
-    AttackService attackService,
     IDbContextFactory<TornbotContext> contextFactory,
     ILogger<UpdateRetalsJob> logger
 ) : FactionJob<UpdateRetalsJob>(contextFactory, logger)
@@ -54,8 +56,12 @@ public class UpdateRetalsJob(
             )
             .Where(a => !trackedAttacksIdHashSet.Contains((ulong)a.Id))
             .Where(a => a.Attacker != null)
-            .Where(a => (DateTime.UtcNow - DateTimeOffset.FromUnixTimeSeconds(a.Ended).DateTime) <
-                        TimeSpan.FromMinutes(expiryTimeMinutes))
+            .Where(a =>
+            {
+                var difference = DateTime.UtcNow - DateTimeOffset.FromUnixTimeSeconds(a.Ended).UtcDateTime;
+                return difference < TimeSpan.FromMinutes(expiryTimeMinutes);
+            }
+            )
             .OrderBy(a => a.Ended)
             .ToImmutableList();
 
@@ -78,7 +84,10 @@ public class UpdateRetalsJob(
     private async Task ProcessExpiredRetals(Faction faction, ImmutableList<RetalOpportunity> expiredAttacks,
         RetalModuleConfig? retalConfig, CancellationToken ct)
     {
-        foreach (var expiredAttack in expiredAttacks)
+        var incomingAttacks = await attackService.GetIncomingAttacks(faction.GuildId);
+        var incomingAttacksIdHashSet = incomingAttacks.Select(a => a.Id).ToImmutableHashSet();
+        
+        foreach (var expiredAttack in expiredAttacks.Where(a => !incomingAttacksIdHashSet.Contains((int)a.AttackId)))
         {
             var message = await restClient.GetMessageAsync(retalConfig!.NotificationChannelId!.Value,
                 expiredAttack.MessageId, cancellationToken: ct);
@@ -168,6 +177,13 @@ public class UpdateRetalsJob(
                 continue;
             }
 
+            // TODO: replace with enum values parsed from TORN API
+            if (attackerProfile.Status.State is "Abroad" or "Traveling" or "Federal" or "Fallen")
+            {
+                Logger.LogInformation("Attacker is not available for retal status: {playerStatus}", attackerProfile.Status.State);
+                continue;
+            }
+
             var attackerBattleStats = await battleStatService.GetUserBattlestatsById(attackerProfile.Id);
             var retalMessage = await CreateRetalMessageAsync(incomingAttack.Result, attackerProfile, defenderProfile,
                 attackerBattleStats);
@@ -244,6 +260,7 @@ public class UpdateRetalsJob(
                 {
                     Title = "Retaliation opportunity",
                     Description = stringBuilder.ToString(),
+                    Color = new Color(0, 0, 255)
                 },
             ],
             Components =
@@ -253,7 +270,7 @@ public class UpdateRetalsJob(
                     new LinkButtonProperties(ShortUrlHelper.GetAttackUrl(attacker.Id).ToString(), "Attack"),
                     new LinkButtonProperties(ShortUrlHelper.GetProfileUrl(attacker.Id).ToString(), "Profile")
                 }
-            ]
+            ],
         };
     }
 }

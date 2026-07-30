@@ -15,8 +15,7 @@ public class NotificationService(RestClient restClient, ILogger<NotificationServ
 
         var restMessage = await restClient.SendMessageAsync(channelId, message);
 
-        logger.LogInformation("Sent notification to channel {ChannelId} with message id {messageId}", channelId,
-            restMessage.Id);
+        logger.LogInformation("Sent notification to channel {ChannelId} with message id {messageId}", channelId, restMessage.Id);
 
         return restMessage;
     }
