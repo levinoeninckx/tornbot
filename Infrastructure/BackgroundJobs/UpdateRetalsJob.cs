@@ -154,7 +154,7 @@ public class UpdateRetalsJob(
                             }
                         ];
                         messageProperties.Components = [];
-                    }, cancellationToken: ct);
+                    }, cancellationToken: ct);                faction.TrackedAttacks.Remove(opportunity);
             }
         }
     }
@@ -172,6 +172,12 @@ public class UpdateRetalsJob(
                 Logger.LogError(
                     "Something went wrong requesting user info for: attacker {AttackerId}, defender {DefenderId}",
                     incomingAttack.Attacker.Id, incomingAttack.Defender.Id);
+                continue;
+            }
+            
+            if (attackerProfile.FactionId == faction.FactionId)
+            {
+                Logger.LogInformation("Attacker {attackerId} is faction member, skipping", attackerProfile.Id);
                 continue;
             }
 
