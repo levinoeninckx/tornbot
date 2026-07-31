@@ -38,7 +38,7 @@ public class UpdateRetalsJob(
         const int expiryTimeMinutes = 5;
         var retalConfig = await repository.GetRetalModuleConfigByGuildId(faction.GuildId);
         var expiredAttacks = faction.TrackedAttacks
-            .Where(a => DateTime.UtcNow - a.Timestamp > TimeSpan.FromMinutes(expiryTimeMinutes))
+            .Where(a => (DateTime.UtcNow - a.Timestamp.ToUniversalTime()) > TimeSpan.FromMinutes(expiryTimeMinutes))
             .ToImmutableList();
 
         await ProcessExpiredRetals(faction, expiredAttacks, retalConfig, ct);
@@ -84,10 +84,7 @@ public class UpdateRetalsJob(
     private async Task ProcessExpiredRetals(Faction faction, ImmutableList<RetalOpportunity> expiredAttacks,
         RetalModuleConfig? retalConfig, CancellationToken ct)
     {
-        var incomingAttacks = await attackService.GetIncomingAttacks(faction.GuildId);
-        var incomingAttacksIdHashSet = incomingAttacks.Select(a => a.Id).ToImmutableHashSet();
-        
-        foreach (var expiredAttack in expiredAttacks.Where(a => !incomingAttacksIdHashSet.Contains((int)a.AttackId)))
+        foreach (var expiredAttack in expiredAttacks)
         {
             var message = await restClient.GetMessageAsync(retalConfig!.NotificationChannelId!.Value,
                 expiredAttack.MessageId, cancellationToken: ct);
@@ -154,7 +151,8 @@ public class UpdateRetalsJob(
                             }
                         ];
                         messageProperties.Components = [];
-                    }, cancellationToken: ct);                faction.TrackedAttacks.Remove(opportunity);
+                    }, cancellationToken: ct
+                );                
             }
         }
     }
@@ -212,7 +210,8 @@ public class UpdateRetalsJob(
             {
                 AttackId = (ulong)incomingAttack.Id,
                 MessageId = message.Id,
-                TargetPlayerId = incomingAttack.Attacker.Id
+                TargetPlayerId = incomingAttack.Attacker.Id,
+                Timestamp = DateTimeOffset.FromUnixTimeSeconds(incomingAttack.Ended).UtcDateTime
             };
 
             faction.TrackedAttacks.Add(newRetalOpportunity);

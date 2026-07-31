@@ -6,5 +6,5 @@ public class RetalOpportunity
     public required ulong AttackId { get; set; }
     public required long TargetPlayerId { get; set; }
     public required ulong MessageId { get; set; }
-    public DateTime Timestamp { get; private set; } = DateTime.UtcNow;
+    public DateTime Timestamp { get; init; }
 }
