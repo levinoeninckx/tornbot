@@ -3,7 +3,7 @@ using TornBot.Bot.Infrastructure.JsonConverters;
 
 namespace TornBot.Bot.Infrastructure.FFScouter.Models;
 
-public class PlayerStats
+public class FfPlayerStats
 {
     [JsonPropertyName("player_id")]
     public int PlayerId { get; set; }

@@ -4,12 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
+using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Features.Retaliation;
 using TornBot.Bot.Features.Retaliation.Models;
 using TornBot.Bot.Infrastructure.TornApi;
-using TornBot.Bot.Infrastructure.TornApi.Models;
 using TornBot.Bot.Shared;
+using BattleStat = TornBot.Bot.Domain.ValueObjects.BattleStat;
 
 namespace TornBot.Bot.Infrastructure.BackgroundJobs;
 
@@ -174,8 +175,8 @@ public class UpdateRetalsJob(
     {
         foreach (var incomingAttack in validIncomingAttacks)
         {
-            var attackerProfile = await tornClient.GetUserProfileById(incomingAttack.Attacker!.Id, ct);
-            var defenderProfile = await tornClient.GetUserProfileById(incomingAttack.Defender.Id, ct);
+            var attackerProfile = await playerProvider.GetPlayerByTornIdAsync(incomingAttack.Attacker!.Id);
+            var defenderProfile = await playerProvider.GetPlayerByTornIdAsync(incomingAttack.Defender.Id);
 
             if (attackerProfile == null || defenderProfile == null)
             {
@@ -192,15 +193,14 @@ public class UpdateRetalsJob(
             }
 
             // TODO: replace with enum values parsed from TORN API
-            if (attackerProfile.Status.State is "Abroad" or "Traveling" or "Federal" or "Fallen")
+            if (attackerProfile.State is PlayerState.Abroad or PlayerState.Traveling or PlayerState.Federal or PlayerState.Fallen)
             {
-                Logger.LogInformation("Attacker is not available for retal status: {playerStatus}", attackerProfile.Status.State);
+                Logger.LogInformation("Attacker is not available for retal status: {playerStatus}", attackerProfile.State);
                 continue;
             }
 
-            var attackerBattleStats = await battleStatService.GetUserBattlestatsById(attackerProfile.Id);
             var retalMessage = await CreateRetalMessageAsync(incomingAttack.Result, attackerProfile, defenderProfile,
-                attackerBattleStats);
+                attackerProfile.BattleStat);
 
             if (retalConfig == null)
             {
@@ -230,18 +230,18 @@ public class UpdateRetalsJob(
         }
     }
 
-    private async Task<MessageProperties> CreateRetalMessageAsync(AttackResult result, Profile attacker, 
-        Profile defender, BattleStat? battleStat)
+    private async Task<MessageProperties> CreateRetalMessageAsync(AttackResult result, Player attacker, 
+        Player defender, BattleStat? battleStat)
     {
         var stringBuilder = new StringBuilder();
 
         stringBuilder
             .AppendLine(
-                $"[{attacker.Name}]({ShortUrlHelper.GetProfileUrl(attacker.Id)}) {result.ToString().ToLower()} [{defender.Name}]({ShortUrlHelper.GetProfileUrl(defender.Id)})");
+                $"[{attacker.Username}]({ShortUrlHelper.GetProfileUrl(attacker.Id)}) {result.ToString().ToLower()} [{defender.Username}]({ShortUrlHelper.GetProfileUrl(defender.Id)})");
 
         var faction = await tornClient.GetUserFactionAsync(attacker.Id);
         stringBuilder.AppendLine("### Player");
-        stringBuilder.AppendLine($"[{attacker.Name}]({ShortUrlHelper.GetProfileUrl(attacker.Id)})");
+        stringBuilder.AppendLine($"[{attacker.Username}]({ShortUrlHelper.GetProfileUrl(attacker.Id)})");
         stringBuilder.AppendLine($"Level {attacker.Level}");
 
         if (faction is not null)
@@ -252,14 +252,14 @@ public class UpdateRetalsJob(
         stringBuilder.AppendLine("### Battle stats");
         if (battleStat != null)
         {
-            stringBuilder.AppendLine($"Total: {battleStat.TotalHumanReadable}");
+            stringBuilder.AppendLine($"Total: {battleStat.Estimate.ToHumanReadable()}");
 
             if (battleStat.Details is not null)
             {
-                stringBuilder.AppendLine($"Strength {battleStat.Details.StrengthHumanReadable}");
-                stringBuilder.AppendLine($"Defense {battleStat.Details.DefenseHumanReadable}");
-                stringBuilder.AppendLine($"Speed {battleStat.Details.SpeedHumanReadable}");
-                stringBuilder.AppendLine($"Dexterity {battleStat.Details.DexterityHumanReadable}");
+                stringBuilder.AppendLine($"Strength {battleStat.Details.Strength.ToHumanReadable()}");
+                stringBuilder.AppendLine($"Defense {battleStat.Details.Defense.ToHumanReadable()}");
+                stringBuilder.AppendLine($"Speed {battleStat.Details.Speed.ToHumanReadable()}");
+                stringBuilder.AppendLine($"Dexterity {battleStat.Details.Dexterity.ToHumanReadable()}");
             }
         }
         else

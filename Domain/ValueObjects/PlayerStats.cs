@@ -2,7 +2,7 @@ namespace TornBot.Bot.Domain.ValueObjects;
 
 public class PlayerStats
 {
-    public int XanaxTakens { get; set; }
+    public int XanaxTaken { get; set; }
     public int RefillsUsed { get; set; }
     public int StatEnhancersUsed { get; set; }
     public int MeritsBought { get; set; }

@@ -1,11 +1,12 @@
 using Microsoft.Extensions.Logging;
+using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Domain.ValueObjects;
 using TornBot.Bot.Infrastructure.FFScouter;
+using TornBot.Bot.Infrastructure.FFScouter.Models;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Infrastructure.TornStats;
 using TornBot.Bot.Infrastructure.TornStats.Models;
-using PlayerStats = TornBot.Bot.Infrastructure.FFScouter.Models.PlayerStats;
 
 namespace TornBot.Bot.Infrastructure;
 
@@ -27,7 +28,35 @@ public class PlayerProvider(
         }
         
         var battleStat = await GetPlayerBattlestatsByIdAsync(tornId);
+        
+        var playerDetails = await tornStatClient.GetSpyProfileDetailsById(tornId);
+        if (playerDetails is null)
+        {
+            logger.LogInformation("Player details not found for Torn ID {TornId}", tornId);
 
+            return new Player
+            {
+                Id = playerProfile.Id,
+                FactionId = playerProfile.FactionId,
+                Username = playerProfile.Name,
+                Gender = playerProfile.Gender,
+                Level = playerProfile.Level,
+                State = Enum.Parse<PlayerState>(playerProfile.Status.State),
+                BattleStat = battleStat
+            };
+        }
+        
+        var playerStats = new PlayerStats()
+        {
+            XanaxTaken = Convert.ToInt32(playerDetails.Data.XanaxTaken.Amount),
+            AttacksWon = Convert.ToInt32(playerDetails.Data.AttacksWon.Amount),
+            DefendsWon = Convert.ToInt32(playerDetails.Data.DefendsWon.Amount),
+            MeritsBought = Convert.ToInt32(playerDetails.Data.MeritsBought.Amount),
+            RefillsUsed = Convert.ToInt32(playerDetails.Data.Refills.Amount),
+            StatEnhancersUsed = Convert.ToInt32(playerDetails.Data.StatEnhancersUsed.Amount),
+            Networth = Convert.ToUInt64(playerDetails.Data.Networth.Amount)
+        };
+            
         return new Player
         {
             Id = playerProfile.Id,
@@ -35,8 +64,11 @@ public class PlayerProvider(
             Username = playerProfile.Name,
             Gender = playerProfile.Gender,
             Level = playerProfile.Level,
-            BattleStat = battleStat
+            State = Enum.Parse<PlayerState>(playerProfile.Status.State),
+            BattleStat = battleStat,
+            PlayerStats = playerStats
         };
+
     }
 
     private async Task<BattleStat?> GetPlayerBattlestatsByIdAsync(int tornId)
@@ -76,6 +108,7 @@ public class PlayerProvider(
             Username = playerProfile.Name,
             Gender = playerProfile.Gender,
             Level = playerProfile.Level,
+            State = Enum.Parse<PlayerState>(playerProfile.Status.State),
             BattleStat = battleStat
         };
     }
@@ -84,37 +117,37 @@ public class PlayerProvider(
     {
         return new BattleStat
         {
-            Estimate = spies.Spy.Total,
+            Estimate = Convert.ToUInt64(spies.Spy.Total),
             Details = new BattleStatDetails
             {
-                Strength = spies.Spy.Strength,
-                Defense = spies.Spy.Defense,
-                Speed = spies.Spy.Speed,
-                Dexterity = spies.Spy.Dexterity
+                Strength = Convert.ToUInt64(spies.Spy.Strength),
+                Defense = Convert.ToUInt64(spies.Spy.Defense),
+                Speed = Convert.ToUInt64(spies.Spy.Speed),
+                Dexterity = Convert.ToUInt64(spies.Spy.Dexterity)
             }
         };
     }
 
-    private BattleStat MapPlayerStatsToBattleStat(PlayerStats ffPlayerStats)
+    private BattleStat MapPlayerStatsToBattleStat(FfPlayerStats ffFfPlayerStats)
     {
-        if (ffPlayerStats.Spies.Length > 0)
+        if (ffFfPlayerStats.Spies.Length > 0)
         {
             return new BattleStat
             {
-                Estimate = ffPlayerStats.Spies[0].Total,
+                Estimate = ffFfPlayerStats.Spies[0].Total,
                 Details = new BattleStatDetails
                 {
-                    Strength = ffPlayerStats.Spies[0].Strength,
-                    Defense = ffPlayerStats.Spies[0].Defense,
-                    Speed = ffPlayerStats.Spies[0].Speed,
-                    Dexterity = ffPlayerStats.Spies[0].Dexterity
+                    Strength = ffFfPlayerStats.Spies[0].Strength,
+                    Defense = ffFfPlayerStats.Spies[0].Defense,
+                    Speed = ffFfPlayerStats.Spies[0].Speed,
+                    Dexterity = ffFfPlayerStats.Spies[0].Dexterity
                 }
             };
         }
         
         return new BattleStat
         {
-            Estimate = Convert.ToUInt64(ffPlayerStats.BsEstimate),
+            Estimate = Convert.ToUInt64(ffFfPlayerStats.BsEstimate),
         };
     }
 }
