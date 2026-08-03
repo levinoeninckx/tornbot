@@ -18,7 +18,6 @@ namespace TornBot.Bot.Infrastructure.BackgroundJobs;
 // TODO: maybe create extension methods for RestClient class for sending notifications
 public class UpdateRetalsJob(
     IPlayerProvider playerProvider,
-    BattleStatService battleStatService,
     TornApiClient tornClient,
     AttackService attackService,
     RestClient restClient,

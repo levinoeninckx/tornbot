@@ -102,7 +102,6 @@ builder.Services.AddTransient<ModuleConfigRepository>();
 builder.Services.AddTransient<NotificationService>();
 builder.Services.AddSingleton<ChannelService>();
 builder.Services.AddSingleton<FactionService>();
-builder.Services.AddTransient<BattleStatService>();
 
 // Set backgroundservices
 builder.Services.AddHostedService<ChainService>();

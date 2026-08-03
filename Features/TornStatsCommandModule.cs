@@ -53,7 +53,12 @@ public class TornStatsCommandModule(TornApiClient client, TornStatClient tsClien
                 "No stats found for this player");
         }
         
-        var battleStat = new BattleStat(stats.Spy.Strength, stats.Spy.Defense, stats.Spy.Speed, stats.Spy.Dexterity);
+        var battleStat = new BattleStat(
+            Convert.ToUInt64(stats.Spy.Strength), 
+            Convert.ToUInt64(stats.Spy.Defense), 
+            Convert.ToUInt64(stats.Spy.Speed), 
+            Convert.ToUInt64(stats.Spy.Dexterity)
+        );
 
         return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Player stats", battleStat.ToString());
     }
