@@ -59,7 +59,7 @@ public class TornStatsCommandModule(TornApiClient client, TornStatClient tsClien
             Convert.ToUInt64(stats.Spy.Speed), 
             Convert.ToUInt64(stats.Spy.Dexterity)
         );
-
+        
         return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Player stats", battleStat.ToString());
     }
 }

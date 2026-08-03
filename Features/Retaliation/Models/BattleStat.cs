@@ -42,4 +42,20 @@ public class BattleStat
         public string SpeedHumanReadable => FormatValue(speed);
         public string DexterityHumanReadable => FormatValue(dexterity);
     }
+    
+    public override string ToString()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"Estimate: {FormatValue(Estimate)}");
+
+        if (Details is not null)
+        {
+            sb.AppendLine($"Strength: {Details.StrengthHumanReadable}");
+            sb.AppendLine($"Defense: {Details.DefenseHumanReadable}");
+            sb.AppendLine($"Speed: {Details.SpeedHumanReadable}");
+            sb.AppendLine($"Dexterity: {Details.DexterityHumanReadable}");
+        }
+
+        return sb.ToString().TrimEnd();
+    }
 }
