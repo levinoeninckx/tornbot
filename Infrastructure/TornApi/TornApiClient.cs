@@ -167,7 +167,7 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService, I
         return await GetAsync<ChainState>("faction/chain", key, ct);
     }
 
-    public async Task<Profile> GetUserProfileByDiscordId(ulong discordId, CancellationToken ct = default)
+    public async Task<Profile?> GetUserProfileByDiscordId(ulong discordId, CancellationToken ct = default)
     {
         var key = await apiKeyService.GetPublicApiKeyAsync();
         if (key == null)

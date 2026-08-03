@@ -6,10 +6,10 @@ namespace TornBot.Bot.Infrastructure.FFScouter;
 
 public class FfScouterClient(HttpClient client, ApiKeyService keyService)
 {
-    public async Task<PlayerStats?> GetPlayerStats(params IEnumerable<int> playerIds)
+    public async Task<FfPlayerStats?> GetPlayerStats(params IEnumerable<int> playerIds)
     {
         var apiKey = await keyService.GetFfScouterApiKeyAsync();
-        var playerStats = await client.GetFromJsonAsync<PlayerStats[]>($"get-stats?key={apiKey}&targets={string.Join(',', playerIds)}");
+        var playerStats = await client.GetFromJsonAsync<FfPlayerStats[]>($"get-stats?key={apiKey}&targets={string.Join(',', playerIds)}");
 
         return playerStats?[0];
     }

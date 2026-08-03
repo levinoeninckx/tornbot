@@ -1,68 +1,177 @@
-namespace TornBot.Bot.Infrastructure.TornStats.Models;
+// Root myDeserializedClass = JsonSerializer.Deserialize<Root>(myJsonResponse);
 
-// Root myDeserializedClass = JsonConvert.DeserializeObject<Root>(myJsonResponse);
 using System.Text.Json.Serialization;
-// Root myDeserializedClass = JsonConvert.DeserializeObject<Root>(myJsonResponse);
+namespace TornBot.Bot.Infrastructure.TornStats.Models;
 public class Attacks
-{
-    public bool Status { get; set; }
-    public string Message { get; set; }
-}
+    {
+        [JsonPropertyName("status")]
+        public bool? Status { get; set; }
 
-public class Compare
-{
-    public bool Status { get; set; }
-    public string Message { get; set; }
-}
+        [JsonPropertyName("message")]
+        public string Message { get; set; }
+    }
 
-public class ProfileDetails
-{
-    public bool Status { get; set; }
-    public string Message { get; set; }
-    public Compare Compare { get; set; }
-    public Spy Spy { get; set; }
-    public Attacks Attacks { get; set; }
-}
+    public class AttacksWon
+    {
+        [JsonPropertyName("amount")]
+        public int? Amount { get; set; }
 
-public class Spy
-{
-    public string Type { get; set; }
-    public bool Status { get; set; }
-    public string Message { get; set; }
-    [JsonPropertyName("player_name")]
-    public string PlayerName { get; set; }
-    [JsonPropertyName("player_id")]
-    public int PlayerId { get; set; }
-    [JsonPropertyName("player_level")]
-    public int PlayerLevel { get; set; }
-    [JsonPropertyName("player_faction")]
-    public string PlayerFaction { get; set; }
-    [JsonPropertyName("target_score")]
-    public double TargetScore { get; set; }
-    [JsonPropertyName("your_score")]
-    public double YourScore { get; set; }
-    [JsonPropertyName("fair_fight_bonus")]
-    public int FairFightBonus { get; set; }
-    public string Difference { get; set; }
-    public int Timestamp { get; set; }
-    public ulong Strength { get; set; }
-    public long DeltaStrength { get; set; }
-    [JsonPropertyName("strength_timestamp")]
-    public int StrengthTimestamp { get; set; }
-    public ulong Defense { get; set; }
-    public long DeltaDefense { get; set; }
-    [JsonPropertyName("defense_timestamp")]
-    public int DefenseTimestamp { get; set; }
-    public ulong Speed { get; set; }
-    public long DeltaSpeed { get; set; }
-    [JsonPropertyName("speed_timestamp")]
-    public int SpeedTimestamp { get; set; }
-    public ulong Dexterity { get; set; }
-    public long DeltaDexterity { get; set; }
-    [JsonPropertyName("dexterity_timestamp")]
-    public int DexterityTimestamp { get; set; }
-    public ulong Total { get; set; }
-    public long DeltaTotal { get; set; }
-    [JsonPropertyName("total_timestamp")]
-    public int TotalTimestamp { get; set; }
-}
+        [JsonPropertyName("difference")]
+        public int? Difference { get; set; }
+    }
+
+    public class ProfileDetails
+    {
+        [JsonPropertyName("status")]
+        public bool? Status { get; set; }
+
+        [JsonPropertyName("data")]
+        public Data Data { get; set; }
+
+        [JsonPropertyName("timestamp")]
+        public string Timestamp { get; set; }
+
+        [JsonPropertyName("spy")]
+        public Spy Spy { get; set; }
+
+        [JsonPropertyName("attacks")]
+        public Attacks Attacks { get; set; }
+    }
+
+    public class Data
+    {
+        [JsonPropertyName("Xanax Taken")]
+        public XanaxTaken XanaxTaken { get; set; }
+
+        [JsonPropertyName("Refills")]
+        public Refills Refills { get; set; }
+
+        [JsonPropertyName("Stat Enhancers Used")]
+        public StatEnhancersUsed StatEnhancersUsed { get; set; }
+
+        [JsonPropertyName("Merits Bought")]
+        public MeritsBought MeritsBought { get; set; }
+
+        [JsonPropertyName("Attacks Won")]
+        public AttacksWon AttacksWon { get; set; }
+
+        [JsonPropertyName("Defends Won")]
+        public DefendsWon DefendsWon { get; set; }
+
+        [JsonPropertyName("Networth")]
+        public Networth Networth { get; set; }
+    }
+
+    public class DefendsWon
+    {
+        [JsonPropertyName("amount")]
+        public int? Amount { get; set; }
+
+        [JsonPropertyName("difference")]
+        public int? Difference { get; set; }
+    }
+
+    public class MeritsBought
+    {
+        [JsonPropertyName("amount")]
+        public int? Amount { get; set; }
+
+        [JsonPropertyName("difference")]
+        public int? Difference { get; set; }
+    }
+
+    public class Networth
+    {
+        [JsonPropertyName("amount")]
+        public int? Amount { get; set; }
+
+        [JsonPropertyName("difference")]
+        public int? Difference { get; set; }
+    }
+
+    public class Refills
+    {
+        [JsonPropertyName("amount")]
+        public int? Amount { get; set; }
+
+        [JsonPropertyName("difference")]
+        public int? Difference { get; set; }
+    }
+
+    public class Root
+    {
+        [JsonPropertyName("compare")]
+        public ProfileDetails ProfileDetails { get; set; }
+    }
+
+    public class Spy
+    {
+        [JsonPropertyName("type")]
+        public string Type { get; set; }
+
+        [JsonPropertyName("status")]
+        public bool? Status { get; set; }
+
+        [JsonPropertyName("message")]
+        public string Message { get; set; }
+
+        [JsonPropertyName("target_score")]
+        public double? TargetScore { get; set; }
+
+        [JsonPropertyName("your_score")]
+        public double? YourScore { get; set; }
+
+        [JsonPropertyName("fair_fight_bonus")]
+        public int? FairFightBonus { get; set; }
+
+        [JsonPropertyName("difference")]
+        public string Difference { get; set; }
+
+        [JsonPropertyName("strength")]
+        public int? Strength { get; set; }
+
+        [JsonPropertyName("deltaStrength")]
+        public int? DeltaStrength { get; set; }
+
+        [JsonPropertyName("defense")]
+        public int? Defense { get; set; }
+
+        [JsonPropertyName("deltaDefense")]
+        public int? DeltaDefense { get; set; }
+
+        [JsonPropertyName("speed")]
+        public int? Speed { get; set; }
+
+        [JsonPropertyName("deltaSpeed")]
+        public int? DeltaSpeed { get; set; }
+
+        [JsonPropertyName("dexterity")]
+        public int? Dexterity { get; set; }
+
+        [JsonPropertyName("deltaDexterity")]
+        public int? DeltaDexterity { get; set; }
+
+        [JsonPropertyName("total")]
+        public int? Total { get; set; }
+
+        [JsonPropertyName("deltaTotal")]
+        public int? DeltaTotal { get; set; }
+    }
+
+    public class StatEnhancersUsed
+    {
+        [JsonPropertyName("amount")]
+        public int? Amount { get; set; }
+
+        [JsonPropertyName("difference")]
+        public int? Difference { get; set; }
+    }
+
+    public class XanaxTaken
+    {
+        [JsonPropertyName("amount")]
+        public int? Amount { get; set; }
+
+        [JsonPropertyName("difference")]
+        public int? Difference { get; set; }
+    }

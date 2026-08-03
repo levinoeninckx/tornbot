@@ -4,19 +4,20 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NetCord;
 using NetCord.Rest;
+using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Features.Retaliation;
 using TornBot.Bot.Features.Retaliation.Models;
 using TornBot.Bot.Infrastructure.TornApi;
-using TornBot.Bot.Infrastructure.TornApi.Models;
 using TornBot.Bot.Shared;
+using BattleStat = TornBot.Bot.Domain.ValueObjects.BattleStat;
 
 namespace TornBot.Bot.Infrastructure.BackgroundJobs;
 
 // TODO: make use of facade pattern to reduce dependencies
 // TODO: maybe create extension methods for RestClient class for sending notifications
 public class UpdateRetalsJob(
-    BattleStatService battleStatService,
+    IPlayerProvider playerProvider,
     TornApiClient tornClient,
     AttackService attackService,
     RestClient restClient,
@@ -78,7 +79,7 @@ public class UpdateRetalsJob(
             .OrderBy(a => a.Ended)
             .ToImmutableList();
 
-        await ProcessOutgoingAttacks(faction, validOutgoingAttacks, retalTargetDict, retalConfig, ct);
+        await ProcessOutgoingAttacks(faction, validOutgoingAttacks, retalConfig, ct);
     }
 
     private async Task ProcessExpiredRetals(Faction faction, ImmutableList<RetalOpportunity> expiredAttacks,
@@ -109,15 +110,25 @@ public class UpdateRetalsJob(
         faction.TrackedAttacks.RemoveAll(a => expiredAttacksHashSet.Contains(a.Id));
     }
 
-    private async Task ProcessOutgoingAttacks(Faction faction, ImmutableList<AttackFull> validOutgoingAttacks,
-        ImmutableDictionary<long, IGrouping<long, RetalOpportunity>> retalTargetDict, RetalModuleConfig? retalConfig,
-        CancellationToken ct)
+    private async Task ProcessOutgoingAttacks(
+        Faction faction, 
+        ImmutableList<AttackFull> validOutgoingAttacks,
+        RetalModuleConfig? retalConfig,
+        CancellationToken ct
+    )
     {
-        foreach (var outgoingAttack in validOutgoingAttacks)
+        var outgoingAttackDict = validOutgoingAttacks
+            .GroupBy(a => a.Defender.Id)
+            .Select(g => g.OrderBy(a => a.Ended).First())
+            .ToImmutableDictionary(a => a.Defender.Id);
+        foreach (var trackedAttack in faction.TrackedAttacks)
         {
-            var retalOpportunities = retalTargetDict[outgoingAttack.Defender.Id];
+            var outgoingAttack = CollectionExtensions.GetValueOrDefault(outgoingAttackDict, (int)trackedAttack.TargetPlayerId);
+            if (outgoingAttack == null)
+            {
+                continue;
+            }
 
-            // update all messages
             if (outgoingAttack.Attacker is null)
             {
                 Logger.LogError(
@@ -125,35 +136,36 @@ public class UpdateRetalsJob(
                     faction.Id);
                 continue;
             }
-
-            var attackerBasic = await tornClient.GetUserProfileById(outgoingAttack.Attacker.Id, ct);
-            if (attackerBasic == null)
+            
+            trackedAttack.State = RetalOpportunityState.Claimed;
+            
+            var attackerBasic = await playerProvider.GetPlayerByTornIdAsync(outgoingAttack.Attacker.Id);
+            
+            if(attackerBasic == null)
             {
-                Logger.LogError("Unable to get player profile for id {playerId} for guild id {guildId}",
-                    outgoingAttack.Attacker.Id, faction.GuildId);
+                Logger.LogError(
+                    "Something went wrong in getting data for outgoing attacks for faction {FactionId}, attacker is null",
+                    faction.Id);
                 continue;
             }
-
-            foreach (var opportunity in retalOpportunities)
-            {
-                var message = await restClient.GetMessageAsync(retalConfig!.NotificationChannelId!.Value,
-                    opportunity.MessageId, cancellationToken: ct);
-                await restClient.ModifyMessageAsync(retalConfig.NotificationChannelId!.Value, opportunity.MessageId,
-                    messageProperties =>
-                    {
-                        messageProperties.Embeds =
-                        [
-                            new EmbedProperties
-                            {
-                                Title = $"Retal claimed by {attackerBasic.Name}[{attackerBasic.Id}]",
-                                Description = message.Embeds[0].Description,
-                                Color = new Color(0, 255, 0)
-                            }
-                        ];
-                        messageProperties.Components = [];
-                    }, cancellationToken: ct
-                );                
-            }
+            
+            var message = await restClient.GetMessageAsync(retalConfig!.NotificationChannelId!.Value,
+                trackedAttack.MessageId, cancellationToken: ct);
+            await restClient.ModifyMessageAsync(retalConfig.NotificationChannelId!.Value, trackedAttack.MessageId,
+                messageProperties =>
+                {
+                    messageProperties.Embeds =
+                    [
+                        new EmbedProperties
+                        {
+                            Title = $"Retal claimed by {attackerBasic.Username}[{attackerBasic.Id}]",
+                            Description = message.Embeds[0].Description,
+                            Color = new Color(0, 255, 0)
+                        }
+                    ];
+                    messageProperties.Components = [];
+                }, cancellationToken: ct
+            ); 
         }
     }
 
@@ -162,8 +174,8 @@ public class UpdateRetalsJob(
     {
         foreach (var incomingAttack in validIncomingAttacks)
         {
-            var attackerProfile = await tornClient.GetUserProfileById(incomingAttack.Attacker!.Id, ct);
-            var defenderProfile = await tornClient.GetUserProfileById(incomingAttack.Defender.Id, ct);
+            var attackerProfile = await playerProvider.GetPlayerByTornIdAsync(incomingAttack.Attacker!.Id);
+            var defenderProfile = await playerProvider.GetPlayerByTornIdAsync(incomingAttack.Defender.Id);
 
             if (attackerProfile == null || defenderProfile == null)
             {
@@ -180,15 +192,14 @@ public class UpdateRetalsJob(
             }
 
             // TODO: replace with enum values parsed from TORN API
-            if (attackerProfile.Status.State is "Abroad" or "Traveling" or "Federal" or "Fallen")
+            if (attackerProfile.State is PlayerState.Abroad or PlayerState.Traveling or PlayerState.Federal or PlayerState.Fallen)
             {
-                Logger.LogInformation("Attacker is not available for retal status: {playerStatus}", attackerProfile.Status.State);
+                Logger.LogInformation("Attacker is not available for retal status: {playerStatus}", attackerProfile.State);
                 continue;
             }
 
-            var attackerBattleStats = await battleStatService.GetUserBattlestatsById(attackerProfile.Id);
             var retalMessage = await CreateRetalMessageAsync(incomingAttack.Result, attackerProfile, defenderProfile,
-                attackerBattleStats);
+                attackerProfile.BattleStat);
 
             if (retalConfig == null)
             {
@@ -218,18 +229,18 @@ public class UpdateRetalsJob(
         }
     }
 
-    private async Task<MessageProperties> CreateRetalMessageAsync(AttackResult result, Profile attacker,
-        Profile defender, BattleStat? battleStat)
+    private async Task<MessageProperties> CreateRetalMessageAsync(AttackResult result, Player attacker, 
+        Player defender, BattleStat? battleStat)
     {
         var stringBuilder = new StringBuilder();
 
         stringBuilder
             .AppendLine(
-                $"[{attacker.Name}]({ShortUrlHelper.GetProfileUrl(attacker.Id)}) {result.ToString().ToLower()} [{defender.Name}]({ShortUrlHelper.GetProfileUrl(defender.Id)})");
+                $"[{attacker.Username}]({ShortUrlHelper.GetProfileUrl(attacker.Id)}) {result.ToString().ToLower()} [{defender.Username}]({ShortUrlHelper.GetProfileUrl(defender.Id)})");
 
         var faction = await tornClient.GetUserFactionAsync(attacker.Id);
         stringBuilder.AppendLine("### Player");
-        stringBuilder.AppendLine($"[{attacker.Name}]({ShortUrlHelper.GetProfileUrl(attacker.Id)})");
+        stringBuilder.AppendLine($"[{attacker.Username}]({ShortUrlHelper.GetProfileUrl(attacker.Id)})");
         stringBuilder.AppendLine($"Level {attacker.Level}");
 
         if (faction is not null)
@@ -240,14 +251,14 @@ public class UpdateRetalsJob(
         stringBuilder.AppendLine("### Battle stats");
         if (battleStat != null)
         {
-            stringBuilder.AppendLine($"Total: {battleStat.TotalHumanReadable}");
+            stringBuilder.AppendLine($"Total: {battleStat.Estimate.ToHumanReadable()}");
 
             if (battleStat.Details is not null)
             {
-                stringBuilder.AppendLine($"Strength {battleStat.Details.StrengthHumanReadable}");
-                stringBuilder.AppendLine($"Defense {battleStat.Details.DefenseHumanReadable}");
-                stringBuilder.AppendLine($"Speed {battleStat.Details.SpeedHumanReadable}");
-                stringBuilder.AppendLine($"Dexterity {battleStat.Details.DexterityHumanReadable}");
+                stringBuilder.AppendLine($"Strength {battleStat.Details.Strength.ToHumanReadable()}");
+                stringBuilder.AppendLine($"Defense {battleStat.Details.Defense.ToHumanReadable()}");
+                stringBuilder.AppendLine($"Speed {battleStat.Details.Speed.ToHumanReadable()}");
+                stringBuilder.AppendLine($"Dexterity {battleStat.Details.Dexterity.ToHumanReadable()}");
             }
         }
         else
