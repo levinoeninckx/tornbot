@@ -16,6 +16,7 @@ namespace TornBot.Bot.Infrastructure.BackgroundJobs;
 // TODO: make use of facade pattern to reduce dependencies
 // TODO: maybe create extension methods for RestClient class for sending notifications
 public class UpdateRetalsJob(
+    IPlayerProvider playerProvider,
     BattleStatService battleStatService,
     TornApiClient tornClient,
     AttackService attackService,
@@ -78,7 +79,7 @@ public class UpdateRetalsJob(
             .OrderBy(a => a.Ended)
             .ToImmutableList();
 
-        await ProcessOutgoingAttacks(faction, validOutgoingAttacks, retalTargetDict, retalConfig, ct);
+        await ProcessOutgoingAttacks(faction, validOutgoingAttacks, retalConfig, ct);
     }
 
     private async Task ProcessExpiredRetals(Faction faction, ImmutableList<RetalOpportunity> expiredAttacks,
@@ -109,15 +110,25 @@ public class UpdateRetalsJob(
         faction.TrackedAttacks.RemoveAll(a => expiredAttacksHashSet.Contains(a.Id));
     }
 
-    private async Task ProcessOutgoingAttacks(Faction faction, ImmutableList<AttackFull> validOutgoingAttacks,
-        ImmutableDictionary<long, IGrouping<long, RetalOpportunity>> retalTargetDict, RetalModuleConfig? retalConfig,
-        CancellationToken ct)
+    private async Task ProcessOutgoingAttacks(
+        Faction faction, 
+        ImmutableList<AttackFull> validOutgoingAttacks,
+        RetalModuleConfig? retalConfig,
+        CancellationToken ct
+    )
     {
-        foreach (var outgoingAttack in validOutgoingAttacks)
+        var outgoingAttackDict = validOutgoingAttacks
+            .GroupBy(a => a.Defender.Id)
+            .Select(g => g.OrderBy(a => a.Ended).First())
+            .ToImmutableDictionary(a => a.Defender.Id);
+        foreach (var trackedAttack in faction.TrackedAttacks)
         {
-            var retalOpportunities = retalTargetDict[outgoingAttack.Defender.Id];
+            var outgoingAttack = CollectionExtensions.GetValueOrDefault(outgoingAttackDict, (int)trackedAttack.TargetPlayerId);
+            if (outgoingAttack == null)
+            {
+                continue;
+            }
 
-            // update all messages
             if (outgoingAttack.Attacker is null)
             {
                 Logger.LogError(
@@ -125,35 +136,36 @@ public class UpdateRetalsJob(
                     faction.Id);
                 continue;
             }
-
-            var attackerBasic = await tornClient.GetUserProfileById(outgoingAttack.Attacker.Id, ct);
-            if (attackerBasic == null)
+            
+            trackedAttack.State = RetalOpportunityState.Claimed;
+            
+            var attackerBasic = await playerProvider.GetPlayerByTornIdAsync(outgoingAttack.Attacker.Id);
+            
+            if(attackerBasic == null)
             {
-                Logger.LogError("Unable to get player profile for id {playerId} for guild id {guildId}",
-                    outgoingAttack.Attacker.Id, faction.GuildId);
+                Logger.LogError(
+                    "Something went wrong in getting data for outgoing attacks for faction {FactionId}, attacker is null",
+                    faction.Id);
                 continue;
             }
-
-            foreach (var opportunity in retalOpportunities)
-            {
-                var message = await restClient.GetMessageAsync(retalConfig!.NotificationChannelId!.Value,
-                    opportunity.MessageId, cancellationToken: ct);
-                await restClient.ModifyMessageAsync(retalConfig.NotificationChannelId!.Value, opportunity.MessageId,
-                    messageProperties =>
-                    {
-                        messageProperties.Embeds =
-                        [
-                            new EmbedProperties
-                            {
-                                Title = $"Retal claimed by {attackerBasic.Name}[{attackerBasic.Id}]",
-                                Description = message.Embeds[0].Description,
-                                Color = new Color(0, 255, 0)
-                            }
-                        ];
-                        messageProperties.Components = [];
-                    }, cancellationToken: ct
-                );                
-            }
+            
+            var message = await restClient.GetMessageAsync(retalConfig!.NotificationChannelId!.Value,
+                trackedAttack.MessageId, cancellationToken: ct);
+            await restClient.ModifyMessageAsync(retalConfig.NotificationChannelId!.Value, trackedAttack.MessageId,
+                messageProperties =>
+                {
+                    messageProperties.Embeds =
+                    [
+                        new EmbedProperties
+                        {
+                            Title = $"Retal claimed by {attackerBasic.Username}[{attackerBasic.Id}]",
+                            Description = message.Embeds[0].Description,
+                            Color = new Color(0, 255, 0)
+                        }
+                    ];
+                    messageProperties.Components = [];
+                }, cancellationToken: ct
+            ); 
         }
     }
 
@@ -218,7 +230,7 @@ public class UpdateRetalsJob(
         }
     }
 
-    private async Task<MessageProperties> CreateRetalMessageAsync(AttackResult result, Profile attacker,
+    private async Task<MessageProperties> CreateRetalMessageAsync(AttackResult result, Profile attacker, 
         Profile defender, BattleStat? battleStat)
     {
         var stringBuilder = new StringBuilder();
