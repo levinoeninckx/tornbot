@@ -68,10 +68,21 @@ public class ApiKeyService(IDbContextFactory<TornbotContext> contextFactory, ILo
             .FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.Minimal);
     }
 
-    public async Task<ApiKey?> GetFfScouterApiKeyAsync()
+    public async Task<ApiKey?> GetFfScouterApiKeyAsync(ulong guildId)
     {
         await using var context = await contextFactory.CreateDbContextAsync();
-        return await context.ApiKeys.FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.FfScouter);
+        var faction = await context.Factions
+            .Where(f => f.GuildId == guildId)
+            .Include(f => f.ApiKeys)
+            .SingleOrDefaultAsync();
+
+        if (faction is null)
+        {
+            logger.LogWarning("No faction found for guild {guildId}", guildId);
+            return null;
+        }
+
+        return faction.ApiKeys.FirstOrDefault(k => k.AccessLevel == AccessLevel.FfScouter);
     }
 
     public async Task<ApiKey?> GetTornStatsApiKeyAsync(ulong guildId)

@@ -54,7 +54,7 @@ public class ConfigurationCommandModule(
             ApiKeys = [initialKey],
             ModuleConfigs =
             [
-                new ModuleConfig()
+                new ModuleConfig
                 {
                     Module = Module.Verification,
                     Config = JsonDocument.Parse(JsonSerializer.Serialize(new VerificationConfig()))

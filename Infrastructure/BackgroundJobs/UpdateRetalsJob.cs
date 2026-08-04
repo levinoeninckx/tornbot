@@ -58,10 +58,10 @@ public class UpdateRetalsJob(
             .Where(a => !trackedAttacksIdHashSet.Contains((ulong)a.Id))
             .Where(a => a.Attacker != null)
             .Where(a =>
-            {
-                var difference = DateTime.UtcNow - DateTimeOffset.FromUnixTimeSeconds(a.Ended).UtcDateTime;
-                return difference < TimeSpan.FromMinutes(expiryTimeMinutes);
-            }
+                {
+                    var difference = DateTime.UtcNow - DateTimeOffset.FromUnixTimeSeconds(a.Ended).UtcDateTime;
+                    return difference < TimeSpan.FromMinutes(expiryTimeMinutes);
+                }
             )
             .OrderBy(a => a.Ended)
             .ToImmutableList();
@@ -111,7 +111,7 @@ public class UpdateRetalsJob(
     }
 
     private async Task ProcessOutgoingAttacks(
-        Faction faction, 
+        Faction faction,
         ImmutableList<AttackFull> validOutgoingAttacks,
         RetalModuleConfig? retalConfig,
         CancellationToken ct
@@ -123,7 +123,8 @@ public class UpdateRetalsJob(
             .ToImmutableDictionary(a => a.Defender.Id);
         foreach (var trackedAttack in faction.TrackedAttacks)
         {
-            var outgoingAttack = CollectionExtensions.GetValueOrDefault(outgoingAttackDict, (int)trackedAttack.TargetPlayerId);
+            var outgoingAttack =
+                CollectionExtensions.GetValueOrDefault(outgoingAttackDict, (int)trackedAttack.TargetPlayerId);
             if (outgoingAttack == null)
             {
                 continue;
@@ -136,19 +137,20 @@ public class UpdateRetalsJob(
                     faction.Id);
                 continue;
             }
-            
+
             trackedAttack.State = RetalOpportunityState.Claimed;
-            
-            var attackerBasic = await playerProvider.GetPlayerByTornIdAsync(outgoingAttack.Attacker.Id);
-            
-            if(attackerBasic == null)
+
+            var attackerBasic =
+                await playerProvider.GetPlayerByTornIdAsync(outgoingAttack.Attacker.Id, faction.GuildId);
+
+            if (attackerBasic == null)
             {
                 Logger.LogError(
                     "Something went wrong in getting data for outgoing attacks for faction {FactionId}, attacker is null",
                     faction.Id);
                 continue;
             }
-            
+
             var message = await restClient.GetMessageAsync(retalConfig!.NotificationChannelId!.Value,
                 trackedAttack.MessageId, cancellationToken: ct);
             await restClient.ModifyMessageAsync(retalConfig.NotificationChannelId!.Value, trackedAttack.MessageId,
@@ -165,7 +167,7 @@ public class UpdateRetalsJob(
                     ];
                     messageProperties.Components = [];
                 }, cancellationToken: ct
-            ); 
+            );
         }
     }
 
@@ -174,8 +176,10 @@ public class UpdateRetalsJob(
     {
         foreach (var incomingAttack in validIncomingAttacks)
         {
-            var attackerProfile = await playerProvider.GetPlayerByTornIdAsync(incomingAttack.Attacker!.Id);
-            var defenderProfile = await playerProvider.GetPlayerByTornIdAsync(incomingAttack.Defender.Id);
+            var attackerProfile =
+                await playerProvider.GetPlayerByTornIdAsync(incomingAttack.Attacker!.Id, faction.GuildId);
+            var defenderProfile =
+                await playerProvider.GetPlayerByTornIdAsync(incomingAttack.Defender.Id, faction.GuildId);
 
             if (attackerProfile == null || defenderProfile == null)
             {
@@ -184,7 +188,7 @@ public class UpdateRetalsJob(
                     incomingAttack.Attacker.Id, incomingAttack.Defender.Id);
                 continue;
             }
-            
+
             if (attackerProfile.FactionId == faction.FactionId)
             {
                 Logger.LogInformation("Attacker {attackerId} is faction member, skipping", attackerProfile.Id);
@@ -192,9 +196,11 @@ public class UpdateRetalsJob(
             }
 
             // TODO: replace with enum values parsed from TORN API
-            if (attackerProfile.State is PlayerState.Abroad or PlayerState.Traveling or PlayerState.Federal or PlayerState.Fallen)
+            if (attackerProfile.State is PlayerState.Abroad or PlayerState.Traveling or PlayerState.Federal
+                or PlayerState.Fallen)
             {
-                Logger.LogInformation("Attacker is not available for retal status: {playerStatus}", attackerProfile.State);
+                Logger.LogInformation("Attacker is not available for retal status: {playerStatus}",
+                    attackerProfile.State);
                 continue;
             }
 
@@ -229,7 +235,7 @@ public class UpdateRetalsJob(
         }
     }
 
-    private async Task<MessageProperties> CreateRetalMessageAsync(AttackResult result, Player attacker, 
+    private async Task<MessageProperties> CreateRetalMessageAsync(AttackResult result, Player attacker,
         Player defender, BattleStat? battleStat)
     {
         var stringBuilder = new StringBuilder();

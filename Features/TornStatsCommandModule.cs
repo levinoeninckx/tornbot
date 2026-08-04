@@ -13,7 +13,11 @@ using TornBot.Bot.Shared;
 namespace TornBot.Bot.Features;
 
 [SlashCommand("ts", "torn stats commands", DefaultGuildPermissions = Permissions.Administrator)]
-public class TornStatsCommandModule(TornApiClient client, TornStatClient tsClient, IDbContextFactory<TornbotContext> dbContextFactory) : ApplicationCommandModule<ApplicationCommandContext>
+public class TornStatsCommandModule(
+    TornApiClient client,
+    TornStatClient tsClient,
+    IDbContextFactory<TornbotContext> dbContextFactory,
+    ApiKeyService apiKeyService) : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("key", "set the tornstats api key")]
     public async Task<InteractionMessageProperties> SetApiKey([SlashCommandParameter] string key)
@@ -23,10 +27,10 @@ public class TornStatsCommandModule(TornApiClient client, TornStatClient tsClien
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Not a valid tornstats key");
         }
-        
+
         var player = await client.GetUserProfileByDiscordId(Context.User.Id);
         var apiKey = new ApiKey(player.Id, key, AccessLevel.TornStats);
-        
+
         await using var dbContext = await dbContextFactory.CreateDbContextAsync();
 
         var faction = await dbContext.Factions
@@ -35,31 +39,38 @@ public class TornStatsCommandModule(TornApiClient client, TornStatClient tsClien
 
         if (faction == null)
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("This guild is not registered");
-        
+
         faction.ApiKeys.Add(apiKey);
 
         await dbContext.SaveChangesAsync();
-        
-        return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", "Your api key has been saved");
+
+        return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success",
+            "Your api key has been saved");
     }
 
     [SubSlashCommand("stats", "get spy stats for a player")]
     public async Task<InteractionMessageProperties> GetStats([SlashCommandParameter] int playerId)
     {
-        var stats = await tsClient.GetSpyProfileDetailsById(playerId);
+        var apiKey = await apiKeyService.GetTornStatsApiKeyAsync(Context.Guild!.Id);
+        if (apiKey is null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("No tornstats api key found");
+        }
+
+        var stats = await tsClient.GetSpyProfileDetailsById(playerId, apiKey.Key);
         if (stats is null)
         {
             return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("No stats found",
                 "No stats found for this player");
         }
-        
+
         var battleStat = new BattleStat(
-            Convert.ToUInt64(stats.Spy.Strength), 
-            Convert.ToUInt64(stats.Spy.Defense), 
-            Convert.ToUInt64(stats.Spy.Speed), 
+            Convert.ToUInt64(stats.Spy.Strength),
+            Convert.ToUInt64(stats.Spy.Defense),
+            Convert.ToUInt64(stats.Spy.Speed),
             Convert.ToUInt64(stats.Spy.Dexterity)
         );
-        
+
         return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Player stats", battleStat.ToString());
     }
 }

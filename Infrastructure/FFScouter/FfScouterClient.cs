@@ -1,15 +1,15 @@
 using System.Net.Http.Json;
 using TornBot.Bot.Infrastructure.FFScouter.Models;
-using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Infrastructure.FFScouter;
 
-public class FfScouterClient(HttpClient client, ApiKeyService keyService)
+public class FfScouterClient(HttpClient client)
 {
-    public async Task<FfPlayerStats?> GetPlayerStats(params IEnumerable<int> playerIds)
+    public async Task<FfPlayerStats?> GetPlayerStats(string key, params IEnumerable<int> playerIds)
     {
-        var apiKey = await keyService.GetFfScouterApiKeyAsync();
-        var playerStats = await client.GetFromJsonAsync<FfPlayerStats[]>($"get-stats?key={apiKey}&targets={string.Join(',', playerIds)}");
+        var playerStats =
+            await client.GetFromJsonAsync<FfPlayerStats[]>(
+                $"get-stats?key={key}&targets={string.Join(',', playerIds)}");
 
         return playerStats?[0];
     }
@@ -21,7 +21,7 @@ public class FfScouterClient(HttpClient client, ApiKeyService keyService)
             var response = await client.GetFromJsonAsync<ApiKey>($"check-key?key={apiKey}");
             return response is { IsRegistered: true };
         }
-        catch(Exception)
+        catch (Exception)
         {
             return false;
         }

@@ -7,29 +7,38 @@ using TornBot.Bot.Infrastructure.FFScouter.Models;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Infrastructure.TornStats;
 using TornBot.Bot.Infrastructure.TornStats.Models;
+using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Infrastructure;
 
 public class PlayerProvider(
-    TornStatClient tornStatClient, 
-    FfScouterClient ffScouterClient, 
+    TornStatClient tornStatClient,
+    FfScouterClient ffScouterClient,
     TornApiClient tornClient,
+    ApiKeyService apiKeyService,
     ILogger<PlayerProvider> logger) : IPlayerProvider
 {
-    public async Task<Player?> GetPlayerByTornIdAsync(int tornId)
+    public async Task<Player?> GetPlayerByTornIdAsync(int tornId, ulong guildId)
     {
         var player = new Player();
-        
+
         var playerProfile = await tornClient.GetUserProfileById(tornId);
         if (playerProfile is null)
         {
             logger.LogInformation("Player profile not found for Torn ID {TornId}", tornId);
             return null;
         }
-        
-        var battleStat = await GetPlayerBattlestatsByIdAsync(tornId);
-        
-        var playerDetails = await tornStatClient.GetSpyProfileDetailsById(tornId);
+
+        var battleStat = await GetPlayerBattlestatsByIdAsync(tornId, guildId);
+
+        var tornstatKey = await apiKeyService.GetTornStatsApiKeyAsync(guildId);
+        if (tornstatKey is null)
+        {
+            logger.LogWarning("Guild {GuildId} has no TornStats API key", guildId);
+            return null;
+        }
+
+        var playerDetails = await tornStatClient.GetSpyProfileDetailsById(tornId, tornstatKey.Key);
         if (playerDetails is null)
         {
             logger.LogInformation("Player details not found for Torn ID {TornId}", tornId);
@@ -45,7 +54,7 @@ public class PlayerProvider(
                 BattleStat = battleStat
             };
         }
-        
+
         var playerStats = new PlayerStats()
         {
             XanaxTaken = Convert.ToInt32(playerDetails.Data.XanaxTaken.Amount),
@@ -56,7 +65,7 @@ public class PlayerProvider(
             StatEnhancersUsed = Convert.ToInt32(playerDetails.Data.StatEnhancersUsed.Amount),
             Networth = Convert.ToUInt64(playerDetails.Data.Networth.Amount)
         };
-            
+
         return new Player
         {
             Id = playerProfile.Id,
@@ -68,19 +77,33 @@ public class PlayerProvider(
             BattleStat = battleStat,
             PlayerStats = playerStats
         };
-
     }
 
-    private async Task<BattleStat?> GetPlayerBattlestatsByIdAsync(int tornId)
+    private async Task<BattleStat?> GetPlayerBattlestatsByIdAsync(int tornId, ulong guildId)
     {
-        var spies = await tornStatClient.GetSpyProfileDetailsById(tornId);
-        if (spies is not null)
+        var apiKey = await apiKeyService.GetTornStatsApiKeyAsync(guildId);
+        if (apiKey is null)
         {
-            logger.LogInformation("Spies found for Torn ID {TornId} with tornstats API", tornId);
-            return MapProfileDetailsToBattleStat(spies);
+            logger.LogWarning("Guild {GuildId} has no TornStats API key", guildId);
         }
-        
-        var ffScouterStats = await ffScouterClient.GetPlayerStats(tornId);
+        else
+        {
+            var spies = await tornStatClient.GetSpyProfileDetailsById(tornId, apiKey.Key);
+            if (spies is not null)
+            {
+                logger.LogInformation("Spies found for Torn ID {TornId} with tornstats API", tornId);
+                return MapProfileDetailsToBattleStat(spies);
+            }
+        }
+
+        var ffApiKey = await apiKeyService.GetFfScouterApiKeyAsync(guildId);
+        if (ffApiKey is null)
+        {
+            logger.LogWarning("Guild {GuildId} has no ffscouter API key", guildId);
+            return null;
+        }
+
+        var ffScouterStats = await ffScouterClient.GetPlayerStats(ffApiKey.Key, tornId);
         if (ffScouterStats is not null)
         {
             logger.LogInformation("Spies found for Torn ID {TornId} with ffscouter API", tornId);
@@ -90,7 +113,7 @@ public class PlayerProvider(
         return null;
     }
 
-    public async Task<Player?> GetPlayerByDiscordIdAsync(ulong discordId)
+    public async Task<Player?> GetPlayerByDiscordIdAsync(ulong discordId, ulong guildId)
     {
         var playerProfile = await tornClient.GetUserProfileByDiscordId(discordId);
         if (playerProfile is null)
@@ -98,8 +121,8 @@ public class PlayerProvider(
             logger.LogInformation("Player profile not found for Discord ID {DiscordId}", discordId);
             return null;
         }
-        
-        var battleStat = await GetPlayerBattlestatsByIdAsync(playerProfile.Id);
+
+        var battleStat = await GetPlayerBattlestatsByIdAsync(playerProfile.Id, guildId);
 
         return new Player
         {
@@ -112,7 +135,7 @@ public class PlayerProvider(
             BattleStat = battleStat
         };
     }
-    
+
     private BattleStat MapProfileDetailsToBattleStat(ProfileDetails spies)
     {
         return new BattleStat
@@ -144,7 +167,7 @@ public class PlayerProvider(
                 }
             };
         }
-        
+
         return new BattleStat
         {
             Estimate = Convert.ToUInt64(ffFfPlayerStats.BsEstimate),
