@@ -7,14 +7,24 @@ namespace TornBot.Bot.Infrastructure.TornStats;
 
 public class TornStatClient(HttpClient client, ApiKeyService keyService, ILogger<TornStatClient> logger)
 {
-    public async Task<ProfileDetails?> GetSpyProfileDetailsById(int playerId)
+    public async Task<ProfileDetails?> GetSpyProfileDetailsById(int playerId, string apiKey)
     {
-        var key = await keyService.GetTornStatsApiKeyAsync();
-        var endpoint = $"{key}/spy/user/{playerId}";
-        
+        var endpoint = $"{apiKey}/spy/user/{playerId}";
+
         try
         {
-            return await client.GetFromJsonAsync<ProfileDetails>(endpoint);
+            var response = await client.GetAsync(endpoint);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning("TornStats API resposne for playerId {playerId}: {statusCode}, reason: {reason}",
+                    playerId, response.StatusCode, response.ReasonPhrase);
+                return null;
+            }
+
+            var profileDetails = await response.Content.ReadFromJsonAsync<ProfileDetails>();
+
+            return profileDetails;
         }
         catch (Exception ex)
         {
@@ -27,9 +37,26 @@ public class TornStatClient(HttpClient client, ApiKeyService keyService, ILogger
     {
         try
         {
-            var keyCheck = await client.GetFromJsonAsync<KeyCheck>(key);
+            var response = await client.GetAsync(key);
 
-            return keyCheck is not null && keyCheck.Status;
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogInformation("TornStats API resposne for checking key {key}: {statusCode}, reason: {reason}",
+                    key, response.StatusCode, response.ReasonPhrase);
+                return false;
+            }
+
+            var keyCheck = await response.Content.ReadFromJsonAsync<KeyCheck>();
+
+            if (keyCheck is null)
+            {
+                logger.LogWarning("TornStats API returned null for checking key {key}", key);
+                return false;
+            }
+
+            logger.LogInformation("Key {key} status: {status} with message {message}", key, keyCheck.Status,
+                keyCheck.Message);
+            return keyCheck.Status;
         }
         catch (Exception ex)
         {
