@@ -49,6 +49,7 @@ public class ConfigurationCommandModule(
         var initialKey = new ApiKey(keyInfo.User.Id, apiKey, AccessLevel.Public);
         var faction = new Faction()
         {
+            Name = string.Empty,
             GuildId = Context.Guild.Id,
             FactionId = keyInfo.User.FactionId,
             ApiKeys = [initialKey],

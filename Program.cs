@@ -60,8 +60,12 @@ builder.Services.AddQuartz(q =>
 
     q.ScheduleJob<UpdateOrganizedCrimes>(t =>
         t.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
-    q.ScheduleJob<UpdateRetalsJob>(trigger =>
+    q.ScheduleJob<GetIncomingAttacksJob>(trigger =>
         trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
+    q.ScheduleJob<GetOutgoingAttacksJob>(trigger =>
+        trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
+    q.ScheduleJob<DeleteExpiredTrackedAttacksJob>(trigger =>
+        trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInMinutes(5).RepeatForever()));
 });
 
 builder.Services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
@@ -101,7 +105,6 @@ builder.Services.AddTransient<VerificationService>();
 builder.Services.AddTransient<ModuleConfigRepository>();
 builder.Services.AddTransient<NotificationService>();
 builder.Services.AddSingleton<ChannelService>();
-builder.Services.AddSingleton<FactionService>();
 builder.Services.AddTransient<IPlayerProvider, PlayerProvider>();
 
 // Set backgroundservices

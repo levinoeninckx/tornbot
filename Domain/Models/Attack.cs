@@ -1,0 +1,29 @@
+using TornBot.Bot.Domain.Enums;
+
+namespace TornBot.Bot.Domain.Models;
+
+public class Attack
+{
+    public required ulong Id { get; set; }
+    public Player? Attacker { get; set; }
+    public required Player Defender { get; set; }
+    public required AttackResult Result { get; set; }
+    public required DateTime Timestamp { get; set; }
+
+    public bool CanBeRetaliated()
+    {
+        if (Attacker is null)
+            return false;
+
+        if (Attacker.FactionId == Defender.FactionId)
+            return false;
+
+        if (Attacker.State is PlayerState.Abroad or PlayerState.Fallen or PlayerState.Federal or PlayerState.Traveling)
+            return false;
+
+        if (DateTime.UtcNow - Timestamp > TimeSpan.FromMinutes(5))
+            return false;
+
+        return true;
+    }
+}
