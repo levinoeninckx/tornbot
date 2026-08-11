@@ -51,7 +51,14 @@ public class TornStatsCommandModule(
     [SubSlashCommand("stats", "get spy stats for a player")]
     public async Task<InteractionMessageProperties> GetStats([SlashCommandParameter] int playerId)
     {
-        var apiKey = await apiKeyService.GetTornStatsApiKeyAsync(Context.Guild!.Id);
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+        var faction = await dbContext.Factions.SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+        if (faction == null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("This guild is not registered");
+        }
+
+        var apiKey = await apiKeyService.GetTornStatsApiKeyAsync(faction.FactionId);
         if (apiKey is null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("No tornstats api key found");

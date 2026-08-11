@@ -247,10 +247,10 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService, I
         return response.Basic;
     }
 
-    public async Task<FactionMemberBalance?> GetMemberFactionBalanceByIdAsync(ulong guildId, ulong userId,
+    public async Task<FactionMemberBalance?> GetMemberFactionBalanceByIdAsync(int factionId, ulong userId,
         CancellationToken ct = default)
     {
-        var apiKey = await apiKeyService.GetLimitedApiKeyAsync(guildId, hasFactionAccess: true);
+        var apiKey = await apiKeyService.GetLimitedApiKeyAsync(factionId, hasFactionAccess: true);
         if (apiKey == null)
         {
             return null;

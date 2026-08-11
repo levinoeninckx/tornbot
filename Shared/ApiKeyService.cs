@@ -34,14 +34,14 @@ public class ApiKeyService(IDbContextFactory<TornbotContext> contextFactory, ILo
         return await context.ApiKeys.Where(k => k.TornPlayerId == userId).ToListAsync();
     }
 
-    public async Task<ApiKey?> GetLimitedApiKeyAsync(ulong guildId, bool hasFactionAccess = false)
+    public async Task<ApiKey?> GetLimitedApiKeyAsync(int factionId, bool hasFactionAccess = false)
     {
         await using var context = await contextFactory.CreateDbContextAsync();
         if (hasFactionAccess)
         {
             return await context.Factions
                 .Include(f => f.ApiKeys)
-                .Where(f => f.GuildId == guildId)
+                .Where(f => f.FactionId == factionId)
                 .SelectMany(f => f.ApiKeys)
                 .FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.LimitedAccess && k.HasFactionAccess);
         }
@@ -68,34 +68,34 @@ public class ApiKeyService(IDbContextFactory<TornbotContext> contextFactory, ILo
             .FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.Minimal);
     }
 
-    public async Task<ApiKey?> GetFfScouterApiKeyAsync(ulong guildId)
+    public async Task<ApiKey?> GetFfScouterApiKeyAsync(int factionId)
     {
         await using var context = await contextFactory.CreateDbContextAsync();
         var faction = await context.Factions
-            .Where(f => f.GuildId == guildId)
+            .Where(f => f.FactionId == factionId)
             .Include(f => f.ApiKeys)
             .SingleOrDefaultAsync();
 
         if (faction is null)
         {
-            logger.LogWarning("No faction found for guild {guildId}", guildId);
+            logger.LogWarning("No faction found for faction {factionId}", factionId);
             return null;
         }
 
         return faction.ApiKeys.FirstOrDefault(k => k.AccessLevel == AccessLevel.FfScouter);
     }
 
-    public async Task<ApiKey?> GetTornStatsApiKeyAsync(ulong guildId)
+    public async Task<ApiKey?> GetTornStatsApiKeyAsync(int factionId)
     {
         await using var context = await contextFactory.CreateDbContextAsync();
         var faction = await context.Factions
-            .Where(f => f.GuildId == guildId)
+            .Where(f => f.FactionId == factionId)
             .Include(f => f.ApiKeys)
             .SingleOrDefaultAsync();
 
         if (faction == null)
         {
-            logger.LogWarning("No faction found for guild {guildId}", guildId);
+            logger.LogWarning("No faction found for faction {factionId}", factionId);
             return null;
         }
 

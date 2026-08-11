@@ -5,8 +5,10 @@ namespace TornBot.Bot.Domain.Models;
 public class Attack
 {
     public required ulong Id { get; set; }
+    public int? AttackerId { get; set; }
     public Player? Attacker { get; set; }
-    public required Player Defender { get; set; }
+    public required int DefenderId { get; set; }
+    public Player? Defender { get; set; }
     public required AttackResult Result { get; set; }
     public required DateTime Timestamp { get; set; }
 

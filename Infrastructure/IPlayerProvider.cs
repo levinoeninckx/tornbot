@@ -4,6 +4,6 @@ namespace TornBot.Bot.Infrastructure;
 
 public interface IPlayerProvider
 {
-    public Task<Player?> GetPlayerByTornIdAsync(int tornId, ulong guildId);
-    public Task<Player?> GetPlayerByDiscordIdAsync(ulong discordId, ulong guildId);
+    public Task<Player?> GetPlayerByTornIdAsync(int tornId, int factionId);
+    public Task<Player?> GetPlayerByDiscordIdAsync(ulong discordId, int factionId);
 }

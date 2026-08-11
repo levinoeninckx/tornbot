@@ -18,10 +18,8 @@ public class PlayerProvider(
     ApiKeyService apiKeyService,
     ILogger<PlayerProvider> logger) : IPlayerProvider
 {
-    public async Task<Player?> GetPlayerByTornIdAsync(int tornId, ulong guildId)
+    public async Task<Player?> GetPlayerByTornIdAsync(int tornId, int factionId)
     {
-        var player = new Player();
-
         var playerProfile = await tornClient.GetUserProfileById(tornId);
         if (playerProfile is null)
         {
@@ -29,12 +27,12 @@ public class PlayerProvider(
             return null;
         }
 
-        var battleStat = await GetPlayerBattlestatsByIdAsync(tornId, guildId);
+        var battleStat = await GetPlayerBattlestatsByIdAsync(tornId, factionId);
 
-        var tornstatKey = await apiKeyService.GetTornStatsApiKeyAsync(guildId);
+        var tornstatKey = await apiKeyService.GetTornStatsApiKeyAsync(factionId);
         if (tornstatKey is null)
         {
-            logger.LogWarning("Guild {GuildId} has no TornStats API key", guildId);
+            logger.LogWarning("Faction {FactionId} has no TornStats API key", factionId);
             return null;
         }
 
@@ -55,7 +53,7 @@ public class PlayerProvider(
             };
         }
 
-        var playerStats = new PlayerStats()
+        var playerStats = new PlayerStats
         {
             XanaxTaken = Convert.ToInt32(playerDetails.Data.XanaxTaken.Amount),
             AttacksWon = Convert.ToInt32(playerDetails.Data.AttacksWon.Amount),
@@ -79,12 +77,12 @@ public class PlayerProvider(
         };
     }
 
-    private async Task<BattleStat?> GetPlayerBattlestatsByIdAsync(int tornId, ulong guildId)
+    private async Task<BattleStat?> GetPlayerBattlestatsByIdAsync(int tornId, int factionId)
     {
-        var apiKey = await apiKeyService.GetTornStatsApiKeyAsync(guildId);
+        var apiKey = await apiKeyService.GetTornStatsApiKeyAsync(factionId);
         if (apiKey is null)
         {
-            logger.LogWarning("Guild {GuildId} has no TornStats API key", guildId);
+            logger.LogWarning("Guild {GuildId} has no TornStats API key", factionId);
         }
         else
         {
@@ -96,10 +94,10 @@ public class PlayerProvider(
             }
         }
 
-        var ffApiKey = await apiKeyService.GetFfScouterApiKeyAsync(guildId);
+        var ffApiKey = await apiKeyService.GetFfScouterApiKeyAsync(factionId);
         if (ffApiKey is null)
         {
-            logger.LogWarning("Guild {GuildId} has no ffscouter API key", guildId);
+            logger.LogWarning("Guild {GuildId} has no ffscouter API key", factionId);
             return null;
         }
 
@@ -113,7 +111,7 @@ public class PlayerProvider(
         return null;
     }
 
-    public async Task<Player?> GetPlayerByDiscordIdAsync(ulong discordId, ulong guildId)
+    public async Task<Player?> GetPlayerByDiscordIdAsync(ulong discordId, int factionId)
     {
         var playerProfile = await tornClient.GetUserProfileByDiscordId(discordId);
         if (playerProfile is null)
@@ -122,7 +120,7 @@ public class PlayerProvider(
             return null;
         }
 
-        var battleStat = await GetPlayerBattlestatsByIdAsync(playerProfile.Id, guildId);
+        var battleStat = await GetPlayerBattlestatsByIdAsync(playerProfile.Id, factionId);
 
         return new Player
         {
