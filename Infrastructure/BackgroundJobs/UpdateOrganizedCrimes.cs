@@ -97,7 +97,7 @@ public class UpdateOrganizedCrimes(
             var channelId = config.NotificationChannelId!.Value;
 
             var message = crimeStatus == OrganizedCrimeStatus.Successful
-                ? await CreateSuccessfulMessageAsync(completedCrime)
+                ? await CreateSuccessfulMessageAsync(faction.Id, completedCrime)
                 : CreateFailureNotification(completedCrime);
 
             await notificationService.SendNotificationAsync(channelId, message, roleId);
@@ -142,17 +142,15 @@ public class UpdateOrganizedCrimes(
         };
     }
 
-    private async Task<MessageProperties> CreateSuccessfulMessageAsync(FactionCrime crime)
+    private async Task<MessageProperties> CreateSuccessfulMessageAsync(int factionId, FactionCrime crime)
     {
-        var players = await Task.WhenAll(crime.Slots
-            .Select(slot => client.GetUserProfileById(slot.User!.Id)));
+        var members = await client.GetFactionMembersByFactionIdAsync(factionId);
+        var participatedMemberLookup = crime.Slots.Select(s => s.User!.Id).ToImmutableHashSet();
 
         var playerStringBuilder = new StringBuilder();
-        foreach (var player in players)
+        foreach (var player in members.Where(m => participatedMemberLookup.Contains(m.Id)))
         {
-            playerStringBuilder.AppendLine(player == null
-                ? "Unknown player"
-                : $"[{player.Name}]({ShortUrlHelper.GetProfileUrl(player.Id)})");
+            playerStringBuilder.AppendLine($"[{player.Name}]({ShortUrlHelper.GetProfileUrl(player.Id)})");
         }
 
         var rewardsStringBuilder = new StringBuilder();
