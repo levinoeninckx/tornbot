@@ -6,8 +6,10 @@ public class Attack
 {
     public required ulong Id { get; set; }
     public int? AttackerId { get; set; }
+    public int? AttackerFactionId { get; set; }
     public Player? Attacker { get; set; }
     public required int DefenderId { get; set; }
+    public int? DefenderFactionId { get; set; }
     public Player? Defender { get; set; }
     public required AttackResult Result { get; set; }
     public required DateTime Timestamp { get; set; }
@@ -17,7 +19,7 @@ public class Attack
         if (Attacker is null)
             return false;
 
-        if (Attacker.FactionId == Defender.FactionId)
+        if (AttackerFactionId == DefenderFactionId)
             return false;
 
         if (Attacker.State is PlayerState.Abroad or PlayerState.Fallen or PlayerState.Federal or PlayerState.Traveling)

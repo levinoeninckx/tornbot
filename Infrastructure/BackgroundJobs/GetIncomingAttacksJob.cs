@@ -39,6 +39,9 @@ public class GetIncomingAttacksJob(
                     .OrderBy(a => a.Timestamp)
                     .ToImmutableList();
 
+                logger.LogInformation("Found {count} new retal opportunities for faction {factionId}", newRetals.Count,
+                    faction.FactionId);
+
                 var retalMessages = newRetals.Select(CreateRetalMessageAsync).ToImmutableList();
 
                 var config = faction.ModuleConfigs.SingleOrDefault(c => c.Module == Module.Retal);

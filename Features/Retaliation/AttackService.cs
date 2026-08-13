@@ -84,7 +84,9 @@ public class AttackService(
             {
                 Id = (ulong)a.Id,
                 AttackerId = a.Attacker?.Id,
+                AttackerFactionId = a.Attacker?.FactionId,
                 DefenderId = a.Defender.Id,
+                DefenderFactionId = a.Defender.FactionId,
                 Result = (AttackResult)a.Result,
                 Timestamp = DateTimeOffset.FromUnixTimeSeconds(a.Ended).UtcDateTime
             })
