@@ -24,6 +24,44 @@ public class AttackService(
             return [];
         }
 
+        var response = await httpClient.GetAsync($"?filters=outgoing&limit=1000&sort=DESC&key={key}");
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            logger.LogError("Torn API error: {StatusCode} - {Body}", response.StatusCode, body);
+            return [];
+        }
+
+        var attacksFullResponse = await response.Content.ReadFromJsonAsync<AttacksFullResponse>();
+
+        if (attacksFullResponse == null)
+        {
+            logger.LogError("Response was empty, something went wrong accessing the torn api");
+            return [];
+        }
+
+        return attacksFullResponse.Attacks
+            .Select(a => new Attack
+            {
+                Id = (ulong)a.Id,
+                AttackerId = a.Attacker?.Id,
+                DefenderId = a.Defender.Id,
+                Result = (AttackResult)a.Result,
+                Timestamp = DateTimeOffset.FromUnixTimeSeconds(a.Ended).UtcDateTime
+            })
+            .ToImmutableList();
+    }
+
+    public async Task<IReadOnlyList<Attack>> GetIncomingAttacksByIdAsync(int factionId)
+    {
+        var key = await apiKeyService.GetLimitedApiKeyAsync(factionId, hasFactionAccess: true);
+        if (key == null)
+        {
+            logger.LogInformation("No available limited key with faction api access");
+            return [];
+        }
+
         var response = await httpClient.GetAsync($"?filters=incoming&limit=1000&sort=DESC&key={key}");
 
         if (!response.IsSuccessStatusCode)
@@ -41,10 +79,6 @@ public class AttackService(
             return [];
         }
 
-        var retalAttacks = attacksFullResponse.Attacks
-            .Where(a => DateTimeOffset.FromUnixTimeSeconds(a.Ended).UtcDateTime > DateTime.UtcNow.AddMinutes(-5))
-            .ToImmutableList();
-
         return attacksFullResponse.Attacks
             .Select(a => new Attack
             {
@@ -55,10 +89,5 @@ public class AttackService(
                 Timestamp = DateTimeOffset.FromUnixTimeSeconds(a.Ended).UtcDateTime
             })
             .ToImmutableList();
-    }
-
-    public Task<IReadOnlyList<Attack>> GetIncomingAttacksByIdAsync(int factionId)
-    {
-        throw new NotImplementedException();
     }
 }
