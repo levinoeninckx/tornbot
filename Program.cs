@@ -92,7 +92,7 @@ builder.Services
 
 // Httpclient
 builder.Services.AddHttpClient<TornApiClient>(client => client.BaseAddress = new Uri("https://api.torn.com/v2/"));
-builder.Services.AddHttpClient<IAttackService>(client =>
+builder.Services.AddHttpClient<IAttackService, AttackService>(client =>
     client.BaseAddress = new Uri("https://api.torn.com/v2/faction/attacksfull/"));
 builder.Services.AddHttpClient<FfScouterClient>(client =>
     client.BaseAddress = new Uri("https://ffscouter.com/api/v1/"));
