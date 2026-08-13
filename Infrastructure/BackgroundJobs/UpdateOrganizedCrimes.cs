@@ -97,7 +97,7 @@ public class UpdateOrganizedCrimes(
             var channelId = config.NotificationChannelId!.Value;
 
             var message = crimeStatus == OrganizedCrimeStatus.Successful
-                ? await CreateSuccessfulMessageAsync(faction.Id, completedCrime)
+                ? await CreateSuccessfulMessageAsync(faction.FactionId, completedCrime)
                 : CreateFailureNotification(completedCrime);
 
             await notificationService.SendNotificationAsync(channelId, message, roleId);
