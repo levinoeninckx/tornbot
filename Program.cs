@@ -106,7 +106,6 @@ builder.Services.AddTransient<ModuleConfigRepository>();
 builder.Services.AddTransient<NotificationService>();
 builder.Services.AddSingleton<ChannelService>();
 builder.Services.AddTransient<IPlayerProvider, PlayerProvider>();
-builder.Services.AddTransient<IAttackService, AttackService>();
 
 // Set backgroundservices
 builder.Services.AddHostedService<ChainService>();
