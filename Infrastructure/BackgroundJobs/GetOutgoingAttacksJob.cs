@@ -21,13 +21,11 @@ public class GetOutgoingAttacksJob(
 {
     public async Task Execute(IJobExecutionContext context)
     {
-        var dbContext = await dbContextFactory.CreateDbContextAsync();
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync();
         var factions = await dbContext.Factions
             .Include(f => f.ModuleConfigs)
             .Include(faction => faction.TrackedAttacks)
             .ToListAsync();
-
-        await dbContext.DisposeAsync();
 
         foreach (var faction in factions)
         {
