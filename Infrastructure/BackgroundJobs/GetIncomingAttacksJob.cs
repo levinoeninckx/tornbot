@@ -15,6 +15,7 @@ namespace TornBot.Bot.Infrastructure.BackgroundJobs;
 public class GetIncomingAttacksJob(
     IDbContextFactory<TornbotContext> dbContextFactory,
     IAttackService attackService,
+    IPlayerProvider playerProvider,
     NotificationService notificationService,
     ILogger<GetIncomingAttacksJob> logger) : IJob
 {
@@ -41,6 +42,22 @@ public class GetIncomingAttacksJob(
 
                 logger.LogInformation("Found {count} new retal opportunities for faction {factionId}", newRetals.Count,
                     faction.FactionId);
+
+                foreach (var newRetal in newRetals)
+                {
+                    var attacker =
+                        await playerProvider.GetPlayerByTornIdAsync(newRetal.AttackerId!.Value, faction.FactionId);
+                    var defender = await playerProvider.GetPlayerByTornIdAsync(newRetal.DefenderId, faction.FactionId);
+
+                    if (attacker is null || defender is null)
+                    {
+                        logger.LogInformation("Could not find attacker or defender for retal {retalId}", newRetal.Id);
+                        continue;
+                    }
+
+                    newRetal.Attacker = attacker;
+                    newRetal.Defender = defender;
+                }
 
                 var retalMessages = newRetals.Select(CreateRetalMessageAsync).ToImmutableList();
 
