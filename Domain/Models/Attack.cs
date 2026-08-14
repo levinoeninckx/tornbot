@@ -16,13 +16,10 @@ public class Attack
 
     public bool CanBeRetaliated()
     {
-        if (Attacker is null)
+        if (AttackerId is null)
             return false;
-
+        
         if (AttackerFactionId == DefenderFactionId)
-            return false;
-
-        if (Attacker.State is PlayerState.Abroad or PlayerState.Fallen or PlayerState.Federal or PlayerState.Traveling)
             return false;
 
         if (DateTime.UtcNow - Timestamp > TimeSpan.FromMinutes(5))
