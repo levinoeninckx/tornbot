@@ -57,6 +57,14 @@ public class GetIncomingAttacksJob(
 
                     newRetal.Attacker = attacker;
                     newRetal.Defender = defender;
+
+                    faction.TrackedAttacks.Add(new RetalOpportunity
+                    {
+                        AttackId = newRetal.Id,
+                        TargetPlayerId = newRetal.DefenderId,
+                        MessageId = 0,
+                        Timestamp = newRetal.Timestamp
+                    });
                 }
 
                 var retalMessages = newRetals.Select(CreateRetalMessageAsync).ToImmutableList();
@@ -95,6 +103,8 @@ public class GetIncomingAttacksJob(
                             message, retalModuleConfig.NotificationRoleId));
 
                 await Task.WhenAll(notificationTasks);
+
+                await dbContext.SaveChangesAsync();
 
                 logger.LogInformation(
                     "Sent {count} retal notifications for faction {factionId} to channel {channelId} with roleId {roleId}",
