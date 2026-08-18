@@ -11,18 +11,13 @@ public class DeleteExpiredTrackedAttacksJob(
     public async Task Execute(IJobExecutionContext context)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync();
-        var factions = await dbContext.Factions
-            .Include(f => f.TrackedAttacks)
-            .ToListAsync(context.CancellationToken);
 
-        foreach (var faction in factions)
-        {
-            var now = DateTime.UtcNow;
-            var totalRemoved = faction.TrackedAttacks.RemoveAll(a => now >= a.Timestamp.AddMinutes(5));
-            logger.LogInformation("Removed {TotalRemoved} expired tracked attacks for faction {FactionFactionId}",
-                totalRemoved, faction.FactionId);
-        }
+        var now = DateTime.UtcNow;
 
-        await dbContext.SaveChangesAsync(context.CancellationToken);
+        var totalRemoved = dbContext.TrackedAttacks
+            .Where(a => a.Timestamp <= now.AddMinutes(-5))
+            .ExecuteDeleteAsync();
+
+        logger.LogInformation("Deleted {count} expired tracked attacks", totalRemoved);
     }
 }

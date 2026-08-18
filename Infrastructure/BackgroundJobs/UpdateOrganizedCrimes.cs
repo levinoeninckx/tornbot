@@ -100,7 +100,12 @@ public class UpdateOrganizedCrimes(
                 ? await CreateSuccessfulMessageAsync(faction.FactionId, completedCrime)
                 : CreateFailureNotification(completedCrime);
 
-            await notificationService.SendNotificationAsync(channelId, message, roleId);
+            await notificationService.SendNotificationAsync(new NotificationCommand
+            {
+                ChannelId = channelId,
+                MessageProperties = message,
+                RoleId = roleId
+            });
             faction.OrganizedCrimes.Remove(trackedCrime);
         }
     }

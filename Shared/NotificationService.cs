@@ -7,15 +7,14 @@ public class NotificationService(RestClient restClient, ILogger<NotificationServ
 {
     private const int MaxEmbedsPerMessage = 10;
 
-    public async Task<RestMessage> SendNotificationAsync(ulong channelId, MessageProperties message,
-        ulong? roleId = null)
+    public async Task<RestMessage> SendNotificationAsync(NotificationCommand command)
     {
-        if (roleId.HasValue)
-            message.WithContent($"<@&{roleId.Value}>");
+        if (command.RoleId.HasValue)
+            command.MessageProperties.WithContent($"<@&{command.RoleId.Value}>");
 
-        var restMessage = await restClient.SendMessageAsync(channelId, message);
+        var restMessage = await restClient.SendMessageAsync(command.ChannelId, command.MessageProperties);
 
-        logger.LogInformation("Sent notification to channel {ChannelId} with message id {messageId}", channelId,
+        logger.LogInformation("Sent notification to channel {ChannelId} with message id {messageId}", command.ChannelId,
             restMessage.Id);
 
         return restMessage;
@@ -30,7 +29,12 @@ public class NotificationService(RestClient restClient, ILogger<NotificationServ
         for (var i = 0; i < embeds.Count; i += MaxEmbedsPerMessage)
         {
             var batch = embeds.Skip(i).Take(MaxEmbedsPerMessage).ToList();
-            await SendNotificationAsync(channelId, new MessageProperties { Embeds = batch }, roleId);
+            await SendNotificationAsync(new NotificationCommand
+            {
+                ChannelId = channelId,
+                MessageProperties = new MessageProperties { Embeds = batch },
+                RoleId = roleId
+            });
         }
 
         logger.LogInformation("Sent {EmbedCount} embeds to channel {ChannelId}", embeds.Count, channelId);

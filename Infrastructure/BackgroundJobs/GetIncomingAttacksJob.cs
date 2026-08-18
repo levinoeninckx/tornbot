@@ -43,6 +43,11 @@ public class GetIncomingAttacksJob(
                 logger.LogInformation("Found {count} new retal opportunities for faction {factionId}", newRetals.Count,
                     faction.FactionId);
 
+                var notificationParameters =
+                    GetNotificationParameters(faction.ModuleConfigs.Single(c => c.Module == Module.Retal));
+                if (notificationParameters is null)
+                    continue;
+
                 foreach (var newRetal in newRetals)
                 {
                     var attacker =
@@ -58,58 +63,29 @@ public class GetIncomingAttacksJob(
                     newRetal.Attacker = attacker;
                     newRetal.Defender = defender;
 
-                    faction.TrackedAttacks.Add(new RetalOpportunity
+                    var retalMessage = CreateRetalMessageAsync(newRetal);
+                    var notificationCommand = new NotificationCommand
                     {
+                        ChannelId = notificationParameters.ChannelId,
+                        RoleId = notificationParameters.RoleId,
+                        MessageProperties = retalMessage
+                    };
+
+                    var message = await notificationService.SendNotificationAsync(notificationCommand);
+
+                    var retalOpp = new RetalOpportunity
+                    {
+                        MessageId = message.Id,
+                        TargetPlayerId = newRetal.AttackerId.Value,
                         AttackId = newRetal.Id,
-                        TargetPlayerId = newRetal.DefenderId,
-                        MessageId = 0,
-                        Timestamp = newRetal.Timestamp
-                    });
+                        Timestamp = newRetal.Timestamp,
+                        State = RetalOpportunityState.Open
+                    };
+
+                    faction.TrackedAttacks.Add(retalOpp);
                 }
-
-                var retalMessages = newRetals.Select(CreateRetalMessageAsync).ToImmutableList();
-
-                var config = faction.ModuleConfigs.SingleOrDefault(c => c.Module == Module.Retal);
-                if (config is null)
-                {
-                    logger.LogWarning("No retal module config found for faction {factionId}", faction.FactionId);
-                    continue;
-                }
-
-                var retalModuleConfig = config.Config.Deserialize<RetalModuleConfig>();
-                if (retalModuleConfig is null)
-                {
-                    logger.LogWarning("Could not deserialize retal module config for faction {factionId}",
-                        faction.FactionId);
-                    continue;
-                }
-
-                if (retalModuleConfig.State != ModuleState.Enabled)
-                {
-                    logger.LogInformation("Retal module is disabled for faction {factionId}", faction.FactionId);
-                    continue;
-                }
-
-                if (!retalModuleConfig.NotificationChannelId.HasValue || !retalModuleConfig.NotificationRoleId.HasValue)
-                {
-                    logger.LogInformation("Notification channel or role not set for faction {factionId}",
-                        faction.FactionId);
-                    continue;
-                }
-
-                var notificationTasks = retalMessages
-                    .Select(message =>
-                        notificationService.SendNotificationAsync(retalModuleConfig.NotificationChannelId.Value,
-                            message, retalModuleConfig.NotificationRoleId));
-
-                await Task.WhenAll(notificationTasks);
 
                 await dbContext.SaveChangesAsync();
-
-                logger.LogInformation(
-                    "Sent {count} retal notifications for faction {factionId} to channel {channelId} with roleId {roleId}",
-                    retalMessages.Count, faction.FactionId, retalModuleConfig.NotificationChannelId.Value,
-                    retalModuleConfig.NotificationRoleId);
             }
         }
         catch (Exception e)
@@ -175,5 +151,27 @@ public class GetIncomingAttacksJob(
                 }
             ],
         };
+    }
+
+    private static NotificationParameters? GetNotificationParameters(ModuleConfig moduleConfig)
+    {
+        var retalModuleConfig = moduleConfig.Config.Deserialize<RetalModuleConfig>();
+        if (retalModuleConfig is null)
+            return null;
+
+        if (retalModuleConfig.State != ModuleState.Enabled)
+            return null;
+
+        if (!retalModuleConfig.NotificationChannelId.HasValue || !retalModuleConfig.NotificationRoleId.HasValue)
+            return null;
+
+        return new NotificationParameters(retalModuleConfig.NotificationChannelId.Value,
+            retalModuleConfig.NotificationRoleId.Value);
+    }
+
+    private class NotificationParameters(ulong channelId, ulong roleId)
+    {
+        public ulong ChannelId { get; } = channelId;
+        public ulong RoleId { get; } = roleId;
     }
 }
