@@ -84,9 +84,9 @@ public class GetIncomingAttacksJob(
 
                     faction.TrackedAttacks.Add(retalOpp);
                 }
-
-                await dbContext.SaveChangesAsync();
             }
+
+            await dbContext.SaveChangesAsync();
         }
         catch (Exception e)
         {

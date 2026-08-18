@@ -18,11 +18,14 @@ public class Attack
     {
         if (AttackerId is null)
             return false;
-        
+
         if (AttackerFactionId == DefenderFactionId)
             return false;
 
         if (DateTime.UtcNow - Timestamp > TimeSpan.FromMinutes(5))
+            return false;
+
+        if (Result is AttackResult.Looted or AttackResult.Stalemate or AttackResult.Lost)
             return false;
 
         return true;
