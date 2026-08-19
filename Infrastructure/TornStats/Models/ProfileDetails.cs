@@ -65,9 +65,9 @@ public class MeritsBought
 
 public class Networth
 {
-    [JsonPropertyName("amount")] public int? Amount { get; set; }
+    [JsonPropertyName("amount")] public ulong? Amount { get; set; }
 
-    [JsonPropertyName("difference")] public int? Difference { get; set; }
+    [JsonPropertyName("difference")] public ulong? Difference { get; set; }
 }
 
 public class Refills
@@ -98,25 +98,25 @@ public class Spy
 
     [JsonPropertyName("difference")] public string Difference { get; set; }
 
-    [JsonPropertyName("strength")] public int? Strength { get; set; }
+    [JsonPropertyName("strength")] public ulong? Strength { get; set; }
 
-    [JsonPropertyName("deltaStrength")] public int? DeltaStrength { get; set; }
+    [JsonPropertyName("deltaStrength")] public ulong? DeltaStrength { get; set; }
 
-    [JsonPropertyName("defense")] public int? Defense { get; set; }
+    [JsonPropertyName("defense")] public ulong? Defense { get; set; }
 
-    [JsonPropertyName("deltaDefense")] public int? DeltaDefense { get; set; }
+    [JsonPropertyName("deltaDefense")] public ulong? DeltaDefense { get; set; }
 
-    [JsonPropertyName("speed")] public int? Speed { get; set; }
+    [JsonPropertyName("speed")] public ulong? Speed { get; set; }
 
-    [JsonPropertyName("deltaSpeed")] public int? DeltaSpeed { get; set; }
+    [JsonPropertyName("deltaSpeed")] public ulong? DeltaSpeed { get; set; }
 
-    [JsonPropertyName("dexterity")] public int? Dexterity { get; set; }
+    [JsonPropertyName("dexterity")] public ulong? Dexterity { get; set; }
 
-    [JsonPropertyName("deltaDexterity")] public int? DeltaDexterity { get; set; }
+    [JsonPropertyName("deltaDexterity")] public ulong? DeltaDexterity { get; set; }
 
-    [JsonPropertyName("total")] public int? Total { get; set; }
+    [JsonPropertyName("total")] public ulong? Total { get; set; }
 
-    [JsonPropertyName("deltaTotal")] public int? DeltaTotal { get; set; }
+    [JsonPropertyName("deltaTotal")] public ulong? DeltaTotal { get; set; }
 }
 
 public class StatEnhancersUsed
