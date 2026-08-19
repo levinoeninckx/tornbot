@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Infrastructure.JsonConverters;
 
 namespace TornBot.Bot.Features.Retaliation.Models;

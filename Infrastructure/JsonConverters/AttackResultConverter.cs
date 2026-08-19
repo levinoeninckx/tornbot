@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using TornBot.Bot.Features.Retaliation.Models;
+using TornBot.Bot.Domain.Enums;
 
 namespace TornBot.Bot.Infrastructure.JsonConverters;
 
@@ -14,7 +14,7 @@ public class AttackResultConverter : JsonConverter<AttackResult>
             return result;
         }
 
-        return AttackResult.None;
+        throw new JsonException($"Could not convert {reader.GetString()} to {nameof(AttackResult)}");
     }
 
     public override void Write(Utf8JsonWriter writer, AttackResult value, JsonSerializerOptions options)

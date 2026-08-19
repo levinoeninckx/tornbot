@@ -25,9 +25,10 @@ public class Attack
         if (DateTime.UtcNow >= Timestamp.AddMinutes(5))
             return false;
 
-        if (Result is AttackResult.Looted or AttackResult.Stalemate or AttackResult.Lost)
-            return false;
+        if (Result is AttackResult.Attacked or AttackResult.Hospitalized or AttackResult.Bounty or AttackResult.Mugged
+            or AttackResult.Arrested)
+            return true;
 
-        return true;
+        return false;
     }
 }

@@ -112,10 +112,11 @@ public class GetOutgoingAttacksJob(
                 updateTasks.Add(task);
             }
 
-            logger.LogInformation("Updated {count} tracked attacks for faction {factionId}", updateTasks.Count,
-                faction.FactionId);
             await Task.WhenAll(updateTasks);
             await dbContext.SaveChangesAsync();
+
+            logger.LogInformation("Updated {count} tracked attacks for faction {factionId}", updateTasks.Count,
+                faction.FactionId);
         }
     }
 }

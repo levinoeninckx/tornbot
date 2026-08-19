@@ -2,6 +2,7 @@ namespace TornBot.Bot.Domain.Enums;
 
 public enum AttackResult
 {
+    None,
     Attacked,
     Mugged,
     Hospitalized,
@@ -9,5 +10,10 @@ public enum AttackResult
     Looted,
     Lost,
     Stalemate,
-    Bounty
+    Bounty,
+    Escape,
+    Assist,
+    Timeout,
+    Special,
+    Interrupted
 }
