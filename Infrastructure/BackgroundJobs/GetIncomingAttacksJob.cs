@@ -117,18 +117,15 @@ public class GetIncomingAttacksJob(
         }
 
         stringBuilder.AppendLine("### Battle stats");
-        if (attack.Attacker.BattleStat is not null)
-        {
-            var battleStat = attack.Attacker.BattleStat;
-            stringBuilder.AppendLine($"Total: {battleStat.Estimate.ToHumanReadable()}");
+        var battleStat = attack.Attacker.BattleStat;
 
-            if (battleStat.Details is not null)
-            {
-                stringBuilder.AppendLine($"Strength {battleStat.Details.Strength.ToHumanReadable()}");
-                stringBuilder.AppendLine($"Defense {battleStat.Details.Defense.ToHumanReadable()}");
-                stringBuilder.AppendLine($"Speed {battleStat.Details.Speed.ToHumanReadable()}");
-                stringBuilder.AppendLine($"Dexterity {battleStat.Details.Dexterity.ToHumanReadable()}");
-            }
+        if (battleStat?.Details is not null)
+        {
+            stringBuilder.AppendLine($"Total: {battleStat.Estimate.ToHumanReadable()}");
+            stringBuilder.AppendLine($"Strength {battleStat.Details.Strength.ToHumanReadable()}");
+            stringBuilder.AppendLine($"Defense {battleStat.Details.Defense.ToHumanReadable()}");
+            stringBuilder.AppendLine($"Speed {battleStat.Details.Speed.ToHumanReadable()}");
+            stringBuilder.AppendLine($"Dexterity {battleStat.Details.Dexterity.ToHumanReadable()}");
         }
         else
         {

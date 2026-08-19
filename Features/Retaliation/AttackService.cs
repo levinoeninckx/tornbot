@@ -47,7 +47,7 @@ public class AttackService(
                 Id = (ulong)a.Id,
                 AttackerId = a.Attacker?.Id,
                 DefenderId = a.Defender.Id,
-                Result = (AttackResult)a.Result,
+                Result = Enum.Parse<AttackResult>(a.Result.ToString()),
                 Timestamp = DateTimeOffset.FromUnixTimeSeconds(a.Ended).UtcDateTime
             })
             .ToImmutableList();
@@ -87,7 +87,7 @@ public class AttackService(
                 AttackerFactionId = a.Attacker?.FactionId,
                 DefenderId = a.Defender.Id,
                 DefenderFactionId = a.Defender.FactionId,
-                Result = (AttackResult)a.Result,
+                Result = Enum.Parse<AttackResult>(a.Result.ToString()),
                 Timestamp = DateTimeOffset.FromUnixTimeSeconds(a.Ended).UtcDateTime
             })
             .ToImmutableList();
