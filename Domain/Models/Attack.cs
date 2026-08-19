@@ -22,7 +22,7 @@ public class Attack
         if (AttackerFactionId == DefenderFactionId)
             return false;
 
-        if (DateTime.UtcNow - Timestamp > TimeSpan.FromMinutes(5))
+        if (DateTime.UtcNow >= Timestamp.AddMinutes(5))
             return false;
 
         if (Result is AttackResult.Looted or AttackResult.Stalemate or AttackResult.Lost)

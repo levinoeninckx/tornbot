@@ -37,7 +37,7 @@ public class PlayerProvider(
         }
 
         var playerDetails = await tornStatClient.GetSpyProfileDetailsById(tornId, tornstatKey.Key);
-        if (playerDetails is null)
+        if (playerDetails?.Data is null)
         {
             logger.LogInformation("Player details not found for Torn ID {TornId}", tornId);
 
@@ -55,13 +55,13 @@ public class PlayerProvider(
 
         var playerStats = new PlayerStats
         {
-            XanaxTaken = Convert.ToInt32(playerDetails.Data.XanaxTaken.Amount),
-            AttacksWon = Convert.ToInt32(playerDetails.Data.AttacksWon.Amount),
-            DefendsWon = Convert.ToInt32(playerDetails.Data.DefendsWon.Amount),
-            MeritsBought = Convert.ToInt32(playerDetails.Data.MeritsBought.Amount),
-            RefillsUsed = Convert.ToInt32(playerDetails.Data.Refills.Amount),
-            StatEnhancersUsed = Convert.ToInt32(playerDetails.Data.StatEnhancersUsed.Amount),
-            Networth = Convert.ToUInt64(playerDetails.Data.Networth.Amount)
+            XanaxTaken = Convert.ToInt32(playerDetails.Data?.XanaxTaken.Amount),
+            AttacksWon = Convert.ToInt32(playerDetails.Data?.AttacksWon.Amount),
+            DefendsWon = Convert.ToInt32(playerDetails.Data?.DefendsWon.Amount),
+            MeritsBought = Convert.ToInt32(playerDetails.Data?.MeritsBought.Amount),
+            RefillsUsed = Convert.ToInt32(playerDetails.Data?.Refills.Amount),
+            StatEnhancersUsed = Convert.ToInt32(playerDetails.Data?.StatEnhancersUsed.Amount),
+            Networth = Convert.ToUInt64(playerDetails.Data?.Networth.Amount)
         };
 
         return new Player

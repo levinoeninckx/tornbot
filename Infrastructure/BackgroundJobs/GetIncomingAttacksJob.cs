@@ -46,7 +46,11 @@ public class GetIncomingAttacksJob(
                 var notificationParameters =
                     GetNotificationParameters(faction.ModuleConfigs.Single(c => c.Module == Module.Retal));
                 if (notificationParameters is null)
+                {
+                    logger.LogInformation("No notification parameters found for faction {factionId}",
+                        faction.FactionId);
                     continue;
+                }
 
                 foreach (var newRetal in newRetals)
                 {
