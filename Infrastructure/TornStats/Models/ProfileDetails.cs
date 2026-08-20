@@ -67,7 +67,7 @@ public class Networth
 {
     [JsonPropertyName("amount")] public ulong? Amount { get; set; }
 
-    [JsonPropertyName("difference")] public ulong? Difference { get; set; }
+    [JsonPropertyName("difference")] public long? Difference { get; set; }
 }
 
 public class Refills
@@ -100,23 +100,23 @@ public class Spy
 
     [JsonPropertyName("strength")] public ulong? Strength { get; set; }
 
-    [JsonPropertyName("deltaStrength")] public ulong? DeltaStrength { get; set; }
+    [JsonPropertyName("deltaStrength")] public long? DeltaStrength { get; set; }
 
     [JsonPropertyName("defense")] public ulong? Defense { get; set; }
 
-    [JsonPropertyName("deltaDefense")] public ulong? DeltaDefense { get; set; }
+    [JsonPropertyName("deltaDefense")] public long? DeltaDefense { get; set; }
 
     [JsonPropertyName("speed")] public ulong? Speed { get; set; }
 
-    [JsonPropertyName("deltaSpeed")] public ulong? DeltaSpeed { get; set; }
+    [JsonPropertyName("deltaSpeed")] public long? DeltaSpeed { get; set; }
 
     [JsonPropertyName("dexterity")] public ulong? Dexterity { get; set; }
 
-    [JsonPropertyName("deltaDexterity")] public ulong? DeltaDexterity { get; set; }
+    [JsonPropertyName("deltaDexterity")] public long? DeltaDexterity { get; set; }
 
     [JsonPropertyName("total")] public ulong? Total { get; set; }
 
-    [JsonPropertyName("deltaTotal")] public ulong? DeltaTotal { get; set; }
+    [JsonPropertyName("deltaTotal")] public long? DeltaTotal { get; set; }
 }
 
 public class StatEnhancersUsed
