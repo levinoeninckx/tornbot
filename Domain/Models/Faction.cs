@@ -1,3 +1,5 @@
+using TornBot.Bot.Domain.Enums;
+
 namespace TornBot.Bot.Domain.Models;
 
 public class Faction
@@ -11,4 +13,8 @@ public class Faction
     public List<OrganizedCrime> OrganizedCrimes { get; set; } = [];
     public List<RetalOpportunity> TrackedAttacks { get; set; } = [];
     public DateTime CreatedAt { get; set; }
+
+    public ApiKey? GetApiKey(AccessLevel accessLevel, bool requireFactionAccess = false)
+        => ApiKeys.FirstOrDefault(k =>
+            k.AccessLevel == accessLevel && (!requireFactionAccess || k.HasFactionAccess));
 }

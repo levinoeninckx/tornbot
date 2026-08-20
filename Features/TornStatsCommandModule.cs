@@ -28,7 +28,13 @@ public class TornStatsCommandModule(
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Not a valid tornstats key");
         }
 
-        var player = await client.GetUserProfileByDiscordId(Context.User.Id);
+        var publicKey = await apiKeyService.GetPublicApiKeyAsync();
+        if (publicKey is null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("No public api key found");
+        }
+
+        var player = await client.GetUserProfileByDiscordId(Context.User.Id, publicKey);
         var apiKey = new ApiKey(player.Id, key, AccessLevel.TornStats);
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync();

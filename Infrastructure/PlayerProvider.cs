@@ -7,7 +7,7 @@ using TornBot.Bot.Infrastructure.FFScouter.Models;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Infrastructure.TornStats;
 using TornBot.Bot.Infrastructure.TornStats.Models;
-using TornBot.Bot.Shared;
+using ApiKey = TornBot.Bot.Domain.Models.ApiKey;
 
 namespace TornBot.Bot.Infrastructure;
 
@@ -15,28 +15,20 @@ public class PlayerProvider(
     TornStatClient tornStatClient,
     FfScouterClient ffScouterClient,
     TornApiClient tornClient,
-    ApiKeyService apiKeyService,
     ILogger<PlayerProvider> logger) : IPlayerProvider
 {
-    public async Task<Player?> GetPlayerByTornIdAsync(int tornId, int factionId)
+    public async Task<Player?> GetPlayerByTornIdAsync(int tornId, ApiKey apiKey)
     {
-        var playerProfile = await tornClient.GetUserProfileById(tornId);
+        var playerProfile = await tornClient.GetUserProfileById(tornId, apiKey.Key);
         if (playerProfile is null)
         {
             logger.LogInformation("Player profile not found for Torn ID {TornId}", tornId);
             return null;
         }
 
-        var battleStat = await GetPlayerBattlestatsByIdAsync(tornId, factionId);
+        var battleStat = await GetPlayerBattlestatsByIdAsync(tornId, apiKey);
 
-        var tornstatKey = await apiKeyService.GetTornStatsApiKeyAsync(factionId);
-        if (tornstatKey is null)
-        {
-            logger.LogWarning("Faction {FactionId} has no TornStats API key", factionId);
-            return null;
-        }
-
-        var playerDetails = await tornStatClient.GetSpyProfileDetailsById(tornId, tornstatKey.Key);
+        var playerDetails = await tornStatClient.GetSpyProfileDetailsById(tornId, apiKey.Key);
         if (playerDetails?.Data is null)
         {
             logger.LogInformation("Player details not found for Torn ID {TornId}", tornId);
@@ -77,31 +69,16 @@ public class PlayerProvider(
         };
     }
 
-    private async Task<BattleStat?> GetPlayerBattlestatsByIdAsync(int tornId, int factionId)
+    private async Task<BattleStat?> GetPlayerBattlestatsByIdAsync(int tornId, ApiKey apiKey)
     {
-        var apiKey = await apiKeyService.GetTornStatsApiKeyAsync(factionId);
-        if (apiKey is null)
+        var spies = await tornStatClient.GetSpyProfileDetailsById(tornId, apiKey.Key);
+        if (spies is not null)
         {
-            logger.LogWarning("Guild {GuildId} has no TornStats API key", factionId);
-        }
-        else
-        {
-            var spies = await tornStatClient.GetSpyProfileDetailsById(tornId, apiKey.Key);
-            if (spies is not null)
-            {
-                logger.LogInformation("Spies found for Torn ID {TornId} with tornstats API", tornId);
-                return MapProfileDetailsToBattleStat(spies);
-            }
+            logger.LogInformation("Spies found for Torn ID {TornId} with tornstats API", tornId);
+            return MapProfileDetailsToBattleStat(spies);
         }
 
-        var ffApiKey = await apiKeyService.GetFfScouterApiKeyAsync(factionId);
-        if (ffApiKey is null)
-        {
-            logger.LogWarning("Guild {GuildId} has no ffscouter API key", factionId);
-            return null;
-        }
-
-        var ffScouterStats = await ffScouterClient.GetPlayerStats(ffApiKey.Key, tornId);
+        var ffScouterStats = await ffScouterClient.GetPlayerStats(apiKey.Key, tornId);
         if (ffScouterStats is not null)
         {
             logger.LogInformation("Spies found for Torn ID {TornId} with ffscouter API", tornId);
@@ -111,16 +88,16 @@ public class PlayerProvider(
         return null;
     }
 
-    public async Task<Player?> GetPlayerByDiscordIdAsync(ulong discordId, int factionId)
+    public async Task<Player?> GetPlayerByDiscordIdAsync(ulong discordId, ApiKey apiKey)
     {
-        var playerProfile = await tornClient.GetUserProfileByDiscordId(discordId);
+        var playerProfile = await tornClient.GetUserProfileByDiscordId(discordId, apiKey.Key);
         if (playerProfile is null)
         {
             logger.LogInformation("Player profile not found for Discord ID {DiscordId}", discordId);
             return null;
         }
 
-        var battleStat = await GetPlayerBattlestatsByIdAsync(playerProfile.Id, factionId);
+        var battleStat = await GetPlayerBattlestatsByIdAsync(playerProfile.Id, apiKey);
 
         return new Player
         {

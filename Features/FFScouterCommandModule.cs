@@ -13,7 +13,12 @@ using TornBot.Bot.Shared;
 namespace TornBot.Bot.Features;
 
 [SlashCommand("ff", "ffScouter commands", DefaultGuildPermissions = Permissions.Administrator)]
-public class FfScouterCommandModule(TornApiClient client, FfScouterClient ffClient, IDbContextFactory<TornbotContext> contextFactory, ILogger<FfScouterCommandModule> logger) : ApplicationCommandModule<ApplicationCommandContext>
+public class FfScouterCommandModule(
+    TornApiClient client,
+    FfScouterClient ffClient,
+    IDbContextFactory<TornbotContext> contextFactory,
+    ApiKeyService apiKeyService,
+    ILogger<FfScouterCommandModule> logger) : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("key", "set the api key you want to use")]
     public async Task<InteractionMessageProperties> SetApiKey([SlashCommandParameter] string key)
@@ -22,10 +27,17 @@ public class FfScouterCommandModule(TornApiClient client, FfScouterClient ffClie
 
         if (isValid == false)
         {
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Key is not registered with ffscouter");
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                "Key is not registered with ffscouter");
         }
-        
-        var userProfile = await client.GetUserProfileByDiscordId(Context.User.Id);
+
+        var publicKey = await apiKeyService.GetPublicApiKeyAsync();
+        if (publicKey is null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("No public api key found");
+        }
+
+        var userProfile = await client.GetUserProfileByDiscordId(Context.User.Id, publicKey);
         var apiKey = new ApiKey(userProfile.Id, key, AccessLevel.FfScouter);
 
         try
@@ -39,15 +51,16 @@ public class FfScouterCommandModule(TornApiClient client, FfScouterClient ffClie
             {
                 return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Faction not registered");
             }
-            
+
             if (faction.ApiKeys.Any(k => k.Key == key))
                 return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Key already registered");
-            
+
             faction.ApiKeys.Add(apiKey);
 
             await context.SaveChangesAsync();
-            
-            return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success", "Your api key has been saved");
+
+            return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success",
+                "Your api key has been saved");
         }
         catch (Exception ex)
         {

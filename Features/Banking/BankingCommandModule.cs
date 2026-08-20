@@ -20,6 +20,7 @@ namespace TornBot.Bot.Features.Banking;
 public class BankingCommandModule(
     IDbContextFactory<TornbotContext> contextFactory,
     TornApiClient client,
+    ApiKeyService apiKeyService,
     ILogger<BankingCommandModule> logger,
     ModuleConfigRepository moduleConfigRepository) : ApplicationCommandModule<ApplicationCommandContext>
 {
@@ -55,7 +56,15 @@ public class BankingCommandModule(
         if (faction == null)
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("This guild is not registered");
 
-        var memberBalance = await client.GetMemberFactionBalanceByIdAsync(faction.FactionId, user.Id);
+        var limitedKey = await apiKeyService.GetLimitedApiKeyAsync(faction.FactionId, hasFactionAccess: true);
+        var publicKey = await apiKeyService.GetPublicApiKeyAsync();
+        if (limitedKey is null || publicKey is null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                "No suitable api key found for this faction");
+        }
+
+        var memberBalance = await client.GetMemberFactionBalanceByIdAsync(faction.FactionId, user.Id, limitedKey.Key);
         if (memberBalance == null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
@@ -75,7 +84,7 @@ public class BankingCommandModule(
 
         var message =
             await CreateMessageAsync<InteractionMessageProperties>(bankingModuleConfig.BankerRoleId.Value, user.Id,
-                amount);
+                amount, publicKey);
 
         return message;
     }
@@ -88,7 +97,14 @@ public class BankingCommandModule(
         if (faction == null)
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("This guild is not registered");
 
-        var balance = await client.GetMemberFactionBalanceByIdAsync(faction.FactionId, Context.User.Id);
+        var limitedKey = await apiKeyService.GetLimitedApiKeyAsync(faction.FactionId, hasFactionAccess: true);
+        if (limitedKey is null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                "No suitable api key found for this faction");
+        }
+
+        var balance = await client.GetMemberFactionBalanceByIdAsync(faction.FactionId, Context.User.Id, limitedKey.Key);
         if (balance == null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
@@ -99,10 +115,10 @@ public class BankingCommandModule(
             $"You currently have {balance.Money.ToString("C0", CultureInfo.CreateSpecificCulture("en-US"))} in your faction bank");
     }
 
-    private async Task<T> CreateMessageAsync<T>(ulong bankerRoleId, ulong requesteeId, long amount)
+    private async Task<T> CreateMessageAsync<T>(ulong bankerRoleId, ulong requesteeId, long amount, string apiKey)
         where T : IMessageProperties, new()
     {
-        var requestee = await client.GetUserProfileByDiscordId(requesteeId);
+        var requestee = await client.GetUserProfileByDiscordId(requesteeId, apiKey);
         var embed = new EmbedProperties()
         {
             Title = "Banking request",

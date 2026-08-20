@@ -16,14 +16,25 @@ namespace TornBot.Bot.Features.OrganizedCrime;
 [RequireOrganizedCrimesAllowedRoles]
 [RequireOrganizedCrimeRestrictedChannels]
 [SlashCommand("oc", "organized crime related commands")]
-public class OrganizedCrimeCommandModule(TornApiClient client) : ApplicationCommandModule<ApplicationCommandContext>
+public class OrganizedCrimeCommandModule(TornApiClient client, ApiKeyService apiKeyService)
+    : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("profits", "see how much your faction has earned with organized crime")]
     public async Task GetFactionCrimeProfits()
     {
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredMessage());
 
-        var crimes = await client.GetCompletedCrimesAsync(Context.Guild!.Id);
+        var minimalKey = await apiKeyService.GetMinimalApiKeyAsync(Context.Guild!.Id, hasFactionAccess: true);
+        var publicKey = await apiKeyService.GetPublicApiKeyAsync();
+        if (minimalKey is null || publicKey is null)
+        {
+            await Context.Interaction.SendFollowupMessageAsync(
+                MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                    "No suitable api key found for this faction"));
+            return;
+        }
+
+        var crimes = await client.GetCompletedCrimesAsync(minimalKey.Key);
         if (crimes == null)
         {
             await Context.Interaction.SendFollowupMessageAsync(
@@ -38,7 +49,8 @@ public class OrganizedCrimeCommandModule(TornApiClient client) : ApplicationComm
             .SelectMany(c => c.Rewards.Items)
             .ToImmutableList();
 
-        var rewardItemInfo = (await client.GetItemsInfoAsync(rewardItems.Select(i => i.Id)) ?? Array.Empty<TornItem>())
+        var rewardItemInfo =
+            (await client.GetItemsInfoAsync(rewardItems.Select(i => i.Id), publicKey) ?? Array.Empty<TornItem>())
             .ToFrozenDictionary(i => i.Id, i => i);
 
         var rewardItemsTotalValue = rewardItems
@@ -54,7 +66,7 @@ public class OrganizedCrimeCommandModule(TornApiClient client) : ApplicationComm
             .GroupBy(s => s)
             .ToFrozenDictionary(s => s.Key, s => s.Count());
 
-        var usedItemsInfo = await client.GetItemsInfoAsync(usedItems.Keys);
+        var usedItemsInfo = await client.GetItemsInfoAsync(usedItems.Keys, publicKey);
         if (usedItemsInfo is null)
         {
             return;

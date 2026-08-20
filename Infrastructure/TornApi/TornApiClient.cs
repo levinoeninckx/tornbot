@@ -4,38 +4,30 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using TornBot.Bot.Infrastructure.TornApi.Models;
-using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Infrastructure.TornApi;
 
-public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService, ILogger<TornApiClient> logger)
+public class TornApiClient(HttpClient httpClient, ILogger<TornApiClient> logger)
 {
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    public Task<ImmutableList<FactionCrime>?> GetAvailableCrimesByGuildIdAsync(ulong guildId,
+    public Task<ImmutableList<FactionCrime>?> GetAvailableCrimesAsync(string apiKey,
         CancellationToken ct = default)
-        => GetCrimesByCategoryAsync(guildId, "available", ct);
+        => GetCrimesByCategoryAsync(apiKey, "available", ct);
 
-    public Task<ImmutableList<FactionCrime>?> GetCompletedCrimesAsync(ulong guildId,
+    public Task<ImmutableList<FactionCrime>?> GetCompletedCrimesAsync(string apiKey,
         CancellationToken ct = default)
-        => GetCrimesByCategoryAsync(guildId, "completed", ct);
+        => GetCrimesByCategoryAsync(apiKey, "completed", ct);
 
-    private async Task<ImmutableList<FactionCrime>?> GetCrimesByCategoryAsync(ulong guildId, string category,
+    private async Task<ImmutableList<FactionCrime>?> GetCrimesByCategoryAsync(string apiKey, string category,
         CancellationToken ct)
     {
-        var key = await apiKeyService.GetMinimalApiKeyAsync(guildId, true);
-        if (key == null)
-        {
-            logger.LogWarning("No minimal api key with faction access found");
-            return null;
-        }
-
         try
         {
-            var response = await GetAsync<FactionCrimesResponse>("faction/crimes", key.Key, ct,
+            var response = await GetAsync<FactionCrimesResponse>("faction/crimes", apiKey, ct,
                 $"cat={category}&limit=50&sort=DESC");
             if (response.Crimes == null)
             {
@@ -52,16 +44,10 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService, I
         }
     }
 
-    public async Task<IReadOnlyList<FactionMember>> GetFactionMembersByFactionIdAsync(int factionId,
+    public async Task<IReadOnlyList<FactionMember>> GetFactionMembersByFactionIdAsync(int factionId, string apiKey,
         CancellationToken ct = default)
     {
-        var key = await apiKeyService.GetPublicApiKeyAsync();
-        if (key == null)
-        {
-            return [];
-        }
-
-        var response = await GetAsync<FactionMembersResponse>($"faction/{factionId}/members", key, ct);
+        var response = await GetAsync<FactionMembersResponse>($"faction/{factionId}/members", apiKey, ct);
         if (response.Members == null)
         {
             throw new InvalidOperationException();
@@ -70,14 +56,8 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService, I
         return response.Members;
     }
 
-    public async Task<FactionCrime[]> GetAllFactionCrimesByGuildIdAsync(ulong guildId)
+    public async Task<FactionCrime[]> GetAllFactionCrimesAsync(string apiKey)
     {
-        var key = await apiKeyService.GetMinimalApiKeyAsync(guildId, true);
-        if (key == null)
-        {
-            return [];
-        }
-
         const int limit = 100;
         const int batchSize = 10; // Number of parallel requests to make at once
         var allCrimes = new ConcurrentBag<FactionCrime>();
@@ -93,7 +73,7 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService, I
             {
                 int offset = currentOffset + (i * limit);
                 var queryParams = $"offset={offset}&limit={limit}";
-                tasks.Add(GetAsync<FactionCrimesResponse>("faction/crimes", key.Key, queryParameters: queryParams,
+                tasks.Add(GetAsync<FactionCrimesResponse>("faction/crimes", apiKey, queryParameters: queryParams,
                     ct: CancellationToken.None));
             }
 
@@ -156,73 +136,44 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService, I
         return result;
     }
 
-    public async Task<ChainState> GetChainStateAsync(CancellationToken ct = default)
+    public async Task<ChainState> GetChainStateAsync(string apiKey, CancellationToken ct = default)
     {
-        var key = await apiKeyService.GetPublicApiKeyAsync();
-        if (key == null)
-        {
-            return null;
-        }
-
-        return await GetAsync<ChainState>("faction/chain", key, ct);
+        return await GetAsync<ChainState>("faction/chain", apiKey, ct);
     }
 
-    public async Task<Profile?> GetUserProfileByDiscordId(ulong discordId, CancellationToken ct = default)
+    public async Task<Profile?> GetUserProfileByDiscordId(ulong discordId, string apiKey,
+        CancellationToken ct = default)
     {
-        var key = await apiKeyService.GetPublicApiKeyAsync();
-        if (key == null)
-        {
-            return null;
-        }
-
-        var userDiscordResponse = await GetAsync<UserDiscordResponse>($"user/{discordId}/discord", key, ct);
+        var userDiscordResponse = await GetAsync<UserDiscordResponse>($"user/{discordId}/discord", apiKey, ct);
 
         var userBasicResponse =
-            await GetAsync<UserBasicResponse>($"user/{userDiscordResponse.Discord.UserId}/basic", key, ct);
+            await GetAsync<UserBasicResponse>($"user/{userDiscordResponse.Discord.UserId}/basic", apiKey, ct);
 
         return userBasicResponse.Profile;
     }
 
-    public async Task<Profile?> GetUserProfileById(int userId, CancellationToken ct = default)
+    public async Task<Profile?> GetUserProfileById(int userId, string apiKey, CancellationToken ct = default)
     {
-        var key = await apiKeyService.GetPublicApiKeyAsync();
-        if (key == null)
-        {
-            return null;
-        }
-
         var userBasicResponse =
-            await GetAsync<UserBasicResponse>($"user/{userId}/basic", key, ct);
+            await GetAsync<UserBasicResponse>($"user/{userId}/basic", apiKey, ct);
 
         return userBasicResponse.Profile;
     }
 
-    public async Task<TornFaction?> GetUserFactionAsync(int userId, CancellationToken ct = default)
+    public async Task<TornFaction?> GetUserFactionAsync(int userId, string apiKey, CancellationToken ct = default)
     {
-        var key = await apiKeyService.GetPublicApiKeyAsync();
-        if (key == null)
-        {
-            return null;
-        }
-
-        var userFacionResponse = await GetAsync<UserFactionResponse>($"user/{userId}/faction", key, ct);
+        var userFacionResponse = await GetAsync<UserFactionResponse>($"user/{userId}/faction", apiKey, ct);
 
         if (userFacionResponse.Faction == null) return null;
 
         return userFacionResponse.Faction;
     }
 
-    public async Task<UserResponse> GetUserAsync(ulong userId, CancellationToken ct = default)
+    public async Task<UserResponse> GetUserAsync(ulong userId, string apiKey, CancellationToken ct = default)
     {
-        var tornProfile = await GetUserProfileByDiscordId(userId, ct);
+        var tornProfile = await GetUserProfileByDiscordId(userId, apiKey, ct);
 
-        var key = await apiKeyService.GetPublicApiKeyAsync();
-        if (key == null)
-        {
-            return null;
-        }
-
-        return await GetAsync<UserResponse>($"user/{tornProfile.Id}", key, ct);
+        return await GetAsync<UserResponse>($"user/{tornProfile.Id}", apiKey, ct);
     }
 
     public async Task<KeyInfo?> GetKeyInfoAsync(string key, CancellationToken ct = default)
@@ -234,50 +185,32 @@ public class TornApiClient(HttpClient httpClient, ApiKeyService apiKeyService, I
         return keyInfoResponse?.Info;
     }
 
-    public async Task<Factionbasic?> GetFactionBasicAsync(int factionId, CancellationToken ct = default)
+    public async Task<Factionbasic?> GetFactionBasicAsync(int factionId, string apiKey, CancellationToken ct = default)
     {
-        var key = await apiKeyService.GetPublicApiKeyAsync();
-        if (key == null)
-        {
-            return null;
-        }
-
-        var response = await GetAsync<FactionBasicResponse>($"faction/{factionId}/basic", key, ct);
+        var response = await GetAsync<FactionBasicResponse>($"faction/{factionId}/basic", apiKey, ct);
 
         return response.Basic;
     }
 
     public async Task<FactionMemberBalance?> GetMemberFactionBalanceByIdAsync(int factionId, ulong userId,
-        CancellationToken ct = default)
+        string apiKey, CancellationToken ct = default)
     {
-        var apiKey = await apiKeyService.GetLimitedApiKeyAsync(factionId, hasFactionAccess: true);
-        if (apiKey == null)
-        {
-            return null;
-        }
+        var response = await GetAsync<FactionBalanceResponse>("faction/balance", apiKey, ct);
 
-        var response = await GetAsync<FactionBalanceResponse>("faction/balance", apiKey.Key, ct);
-
-        var tornProfile = await GetUserProfileByDiscordId(userId, ct);
+        var tornProfile = await GetUserProfileByDiscordId(userId, apiKey, ct);
         var memberBalance = response.Balance.Members.FirstOrDefault(x => x.Id == tornProfile.Id);
 
         return memberBalance;
     }
 
-    public async Task<IReadOnlyList<TornItem>?> GetItemsInfoAsync(IEnumerable<int> itemIds,
+    public async Task<IReadOnlyList<TornItem>?> GetItemsInfoAsync(IEnumerable<int> itemIds, string apiKey,
         CancellationToken ct = default)
     {
-        var key = await apiKeyService.GetPublicApiKeyAsync();
-        if (key == null)
-        {
-            return null;
-        }
-
         var ids = itemIds.ToList();
         if (ids.Count == 0)
             return [];
 
-        var response = await GetAsync<TornItemsResponse>($"torn/{string.Join(',', ids)}/items", key, ct);
+        var response = await GetAsync<TornItemsResponse>($"torn/{string.Join(',', ids)}/items", apiKey, ct);
 
         return response.Items;
     }

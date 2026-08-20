@@ -39,11 +39,11 @@ public class ApiKeyService(IDbContextFactory<TornbotContext> contextFactory, ILo
         await using var context = await contextFactory.CreateDbContextAsync();
         if (hasFactionAccess)
         {
-            return await context.Factions
+            var faction = await context.Factions
                 .Include(f => f.ApiKeys)
-                .Where(f => f.FactionId == factionId)
-                .SelectMany(f => f.ApiKeys)
-                .FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.LimitedAccess && k.HasFactionAccess);
+                .SingleOrDefaultAsync(f => f.FactionId == factionId);
+
+            return faction?.GetApiKey(AccessLevel.LimitedAccess, requireFactionAccess: true);
         }
 
         return await context.ApiKeys
@@ -53,19 +53,12 @@ public class ApiKeyService(IDbContextFactory<TornbotContext> contextFactory, ILo
     public async Task<ApiKey?> GetMinimalApiKeyAsync(ulong guildId, bool hasFactionAccess = false)
     {
         await using var context = await contextFactory.CreateDbContextAsync();
-        var queryable = context.Factions
+        var faction = await context.Factions
             .AsNoTracking()
             .Include(f => f.ApiKeys)
-            .Where(f => f.GuildId == guildId)
-            .SelectMany(f => f.ApiKeys);
+            .SingleOrDefaultAsync(f => f.GuildId == guildId);
 
-        if (hasFactionAccess)
-        {
-            return await queryable.FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.Minimal && k.HasFactionAccess);
-        }
-
-        return await queryable
-            .FirstOrDefaultAsync(k => k.AccessLevel == AccessLevel.Minimal);
+        return faction?.GetApiKey(AccessLevel.Minimal, hasFactionAccess);
     }
 
     public async Task<ApiKey?> GetFfScouterApiKeyAsync(int factionId)
@@ -82,7 +75,7 @@ public class ApiKeyService(IDbContextFactory<TornbotContext> contextFactory, ILo
             return null;
         }
 
-        return faction.ApiKeys.FirstOrDefault(k => k.AccessLevel == AccessLevel.FfScouter);
+        return faction.GetApiKey(AccessLevel.FfScouter);
     }
 
     public async Task<ApiKey?> GetTornStatsApiKeyAsync(int factionId)
@@ -99,6 +92,6 @@ public class ApiKeyService(IDbContextFactory<TornbotContext> contextFactory, ILo
             return null;
         }
 
-        return faction.ApiKeys.FirstOrDefault(k => k.AccessLevel == AccessLevel.TornStats);
+        return faction.GetApiKey(AccessLevel.TornStats);
     }
 }

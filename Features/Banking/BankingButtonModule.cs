@@ -8,7 +8,8 @@ using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Banking;
 
-public class BankingButtonModule(TornApiClient client) : ComponentInteractionModule<ButtonInteractionContext>
+public class BankingButtonModule(TornApiClient client, ApiKeyService apiKeyService)
+    : ComponentInteractionModule<ButtonInteractionContext>
 {
     [RequireBankerRole]
     [ComponentInteraction("accept_request")]
@@ -18,7 +19,14 @@ public class BankingButtonModule(TornApiClient client) : ComponentInteractionMod
         var guildUser = Context.User as GuildUser;
         var amount = Convert.ToInt32(requestedAmount);
 
-        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId));
+        var apiKey = await apiKeyService.GetPublicApiKeyAsync();
+        if (apiKey is null)
+        {
+            await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
+            return;
+        }
+
+        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId), apiKey);
 
         var stringBuilder = new StringBuilder();
 
@@ -26,7 +34,7 @@ public class BankingButtonModule(TornApiClient client) : ComponentInteractionMod
             $"[{requestee.Name}]({ShortUrlHelper.GetProfileUrl(requestee.Id)}) requested {amount.ToString("C0", CultureInfo.GetCultureInfo("en-US"))} from the faction bank");
         stringBuilder.AppendLine("### Clicky");
         stringBuilder.AppendLine($"[link](https://tcy.sh/s/bg?u={requestee.Id}&a={amount})");
-        
+
         var dmMessage = new MessageProperties
         {
             Embeds =
@@ -38,36 +46,50 @@ public class BankingButtonModule(TornApiClient client) : ComponentInteractionMod
                 }
             ]
         };
-        
+
         await dmChannel.SendMessageAsync(dmMessage);
 
-        var acceptorUser = await client.GetUserProfileByDiscordId(guildUser!.Id);
-        var confirmButton = new ButtonProperties($"confirm_request:{requesteeId}:{amount}", "Confirm", ButtonStyle.Success);
-        
-        await Context.Message.ModifyAsync(message => 
+        var acceptorUser = await client.GetUserProfileByDiscordId(guildUser!.Id, apiKey);
+        var confirmButton =
+            new ButtonProperties($"confirm_request:{requesteeId}:{amount}", "Confirm", ButtonStyle.Success);
+
+        await Context.Message.ModifyAsync(message =>
         {
-            message.Embeds = [
+            message.Embeds =
+            [
                 new EmbedProperties
                 {
                     Title = "Banking request accepted",
-                    Description = $"[{requestee.Name}]({ShortUrlHelper.GetProfileUrl(requestee.Id)})'s request was accepted by [{acceptorUser.Name}]({ShortUrlHelper.GetProfileUrl(acceptorUser.Id)})",
+                    Description =
+                        $"[{requestee.Name}]({ShortUrlHelper.GetProfileUrl(requestee.Id)})'s request was accepted by [{acceptorUser.Name}]({ShortUrlHelper.GetProfileUrl(acceptorUser.Id)})",
                 },
             ];
-            message.Components = [new ActionRowProperties { Components = [confirmButton, new ButtonProperties($"cancel_request:{requesteeId}", "Cancel", ButtonStyle.Danger)] }];
+            message.Components =
+            [
+                new ActionRowProperties
+                {
+                    Components =
+                    [
+                        confirmButton,
+                        new ButtonProperties($"cancel_request:{requesteeId}", "Cancel", ButtonStyle.Danger)
+                    ]
+                }
+            ];
         });
 
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
     }
-    
+
     [ComponentInteraction("cancel_request")]
     public async Task CancelBankingRequest(string requesteeId)
     {
         if (Context.User.Id != Convert.ToUInt64(requesteeId))
         {
-            var msg = MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Unauthorized", "Only a banker or the requestee can cancel a request");
+            var msg = MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Unauthorized",
+                "Only a banker or the requestee can cancel a request");
             await Context.Interaction.SendFollowupMessageAsync(msg);
         }
-        
+
         var guildUser = Context.User as GuildUser;
 
         if (guildUser == null)
@@ -75,22 +97,30 @@ public class BankingButtonModule(TornApiClient client) : ComponentInteractionMod
             await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
             return;
         }
-        
-        var decliner = await client.GetUserProfileByDiscordId(guildUser.Id);
-        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId));
+
+        var apiKey = await apiKeyService.GetPublicApiKeyAsync();
+        if (apiKey is null)
+        {
+            await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
+            return;
+        }
+
+        var decliner = await client.GetUserProfileByDiscordId(guildUser.Id, apiKey);
+        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId), apiKey);
 
         var embed = new EmbedProperties
         {
             Title = "Banking request cancelled",
-            Description = $"[{requestee.Name}]({ShortUrlHelper.GetProfileUrl(requestee.Id)})'s request was cancelled by [{decliner.Name}]({ShortUrlHelper.GetProfileUrl(decliner.Id)})",
+            Description =
+                $"[{requestee.Name}]({ShortUrlHelper.GetProfileUrl(requestee.Id)})'s request was cancelled by [{decliner.Name}]({ShortUrlHelper.GetProfileUrl(decliner.Id)})",
         };
 
-        await Context.Message.ModifyAsync(message => 
+        await Context.Message.ModifyAsync(message =>
         {
             message.Embeds = [embed];
             message.Components = [];
         });
-        
+
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
     }
 
@@ -105,27 +135,36 @@ public class BankingButtonModule(TornApiClient client) : ComponentInteractionMod
             await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
             return;
         }
-        
-        var confirmer = await client.GetUserProfileByDiscordId(guildUser.Id);
-        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId));
+
+        var apiKey = await apiKeyService.GetPublicApiKeyAsync();
+        if (apiKey is null)
+        {
+            await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
+            return;
+        }
+
+        var confirmer = await client.GetUserProfileByDiscordId(guildUser.Id, apiKey);
+        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId), apiKey);
 
         var embed = new EmbedProperties
         {
             Title = "Banking request confirmed",
-            Description = $"[{requestee.Name}]({ShortUrlHelper.GetProfileUrl(requestee.Id)})'s request was confirmed by [{confirmer.Name}]({ShortUrlHelper.GetProfileUrl(confirmer.Id)})",
+            Description =
+                $"[{requestee.Name}]({ShortUrlHelper.GetProfileUrl(requestee.Id)})'s request was confirmed by [{confirmer.Name}]({ShortUrlHelper.GetProfileUrl(confirmer.Id)})",
         };
-        
+
         var requesteeUser = await Context.Guild!.GetUserAsync(Convert.ToUInt64(requesteeId));
         var dmChannel = await requesteeUser.GetDMChannelAsync();
-        var confirmationMessage = MessageFactory.CreateDefaultMessage<MessageProperties>("Request confirmed", $"Your request to withdraw {amount.ToString("C0", CultureInfo.GetCultureInfo("en-US"))} has been confirmed by {guildUser.Nickname}");
+        var confirmationMessage = MessageFactory.CreateDefaultMessage<MessageProperties>("Request confirmed",
+            $"Your request to withdraw {amount.ToString("C0", CultureInfo.GetCultureInfo("en-US"))} has been confirmed by {guildUser.Nickname}");
         await dmChannel.SendMessageAsync(confirmationMessage);
 
-        await Context.Message.ModifyAsync(message => 
+        await Context.Message.ModifyAsync(message =>
         {
             message.Embeds = [embed];
             message.Components = [];
         });
-        
+
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
     }
 }

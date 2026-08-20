@@ -21,7 +21,8 @@ public class ApiKeyCommandModule(
 {
     [SubSlashCommand("add", "add an api key")]
     public async Task<InteractionMessageProperties> SetApiKey(
-        [SlashCommandParameter(Description = "Your api key")] string key)
+        [SlashCommandParameter(Description = "Your api key")]
+        string key)
     {
         var existingKeys = await apiKeyService.GetAllApiKeysAsync();
 
@@ -115,7 +116,8 @@ public class ApiKeyCommandModule(
 
     [SubSlashCommand("list", "list all your api keys")]
     public async Task<InteractionMessageProperties> ListApiKeys(
-        [SlashCommandParameter(Description = "show keys for specific user")] GuildUser? user = null)
+        [SlashCommandParameter(Description = "show keys for specific user")]
+        GuildUser? user = null)
     {
         var keys = await apiKeyService.GetAllApiKeysAsync();
 
@@ -131,7 +133,13 @@ public class ApiKeyCommandModule(
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
         }
 
-        var tornProfile = await client.GetUserProfileByDiscordId(guildUser.Id);
+        var publicKey = await apiKeyService.GetPublicApiKeyAsync();
+        if (publicKey is null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("No public api key found");
+        }
+
+        var tornProfile = await client.GetUserProfileByDiscordId(guildUser.Id, publicKey);
 
         var apiKeys = await context.ApiKeys.ToListAsync();
 

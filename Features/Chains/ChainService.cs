@@ -11,12 +11,15 @@ public class ChainService : BackgroundService
     private readonly RestClient _restClient;
     private readonly ChannelService _channelService;
     private readonly TornApiClient _apiClient;
+    private readonly ApiKeyService _apiKeyService;
 
-    public ChainService(RestClient restClient, ChannelService channelService, TornApiClient apiClient)
+    public ChainService(RestClient restClient, ChannelService channelService, TornApiClient apiClient,
+        ApiKeyService apiKeyService)
     {
         _restClient = restClient;
         _channelService = channelService;
         _apiClient = apiClient;
+        _apiKeyService = apiKeyService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -29,7 +32,10 @@ public class ChainService : BackgroundService
 
             if (!channelid.HasValue) continue;
 
-            var chain = await _apiClient.GetChainStateAsync(stoppingToken);
+            var apiKey = await _apiKeyService.GetPublicApiKeyAsync();
+            if (apiKey is null) continue;
+
+            var chain = await _apiClient.GetChainStateAsync(apiKey, stoppingToken);
 
             if (chain.Timeout == 0) continue;
 

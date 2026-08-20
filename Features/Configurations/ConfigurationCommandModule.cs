@@ -77,7 +77,7 @@ public class ConfigurationCommandModule(
 
         await SetOcTriggersAsync();
 
-        var factionBasic = await client.GetFactionBasicAsync(faction.FactionId);
+        var factionBasic = await client.GetFactionBasicAsync(faction.FactionId, apiKey);
         if (factionBasic == null)
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to get faction information");
 

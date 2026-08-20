@@ -52,11 +52,18 @@ public class GetIncomingAttacksJob(
                     continue;
                 }
 
+                var publicKey = faction.GetApiKey(AccessLevel.Public);
+                if (publicKey is null)
+                {
+                    logger.LogWarning("No public api key found for faction with id {FactionId}", faction.FactionId);
+                    continue;
+                }
+
                 foreach (var newRetal in newRetals)
                 {
                     var attacker =
-                        await playerProvider.GetPlayerByTornIdAsync(newRetal.AttackerId!.Value, faction.FactionId);
-                    var defender = await playerProvider.GetPlayerByTornIdAsync(newRetal.DefenderId, faction.FactionId);
+                        await playerProvider.GetPlayerByTornIdAsync(newRetal.AttackerId!.Value, publicKey);
+                    var defender = await playerProvider.GetPlayerByTornIdAsync(newRetal.DefenderId, publicKey);
 
                     if (attacker is null || defender is null)
                     {
