@@ -14,7 +14,6 @@ namespace TornBot.Bot.Features;
 
 [SlashCommand("key", "key commands")]
 public class ApiKeyCommandModule(
-    ApiKeyService apiKeyService,
     TornbotContext context,
     TornApiClient client,
     ILogger<ApiKeyCommandModule> logger) : ApplicationCommandModule<ApplicationCommandContext>
@@ -24,9 +23,9 @@ public class ApiKeyCommandModule(
         [SlashCommandParameter(Description = "Your api key")]
         string key)
     {
-        var existingKeys = await apiKeyService.GetAllApiKeysAsync();
+        var keyExists = await context.ApiKeys.AnyAsync(k => k.Key == key);
 
-        if (existingKeys.Any(k => k.Key == key))
+        if (keyExists)
         {
             // TODO: change to warning message
             var message = MessageFactory.CreateErrorMessage<InteractionMessageProperties>("API key is already added");
@@ -57,6 +56,7 @@ public class ApiKeyCommandModule(
             HasFactionAccess = keyInfo.Access.Faction,
             HasCompanyAccess = keyInfo.Access.Company
         };
+        apiKey.IncreaseUsage();
 
         faction.ApiKeys.Add(apiKey);
 
@@ -83,7 +83,7 @@ public class ApiKeyCommandModule(
         [SlashCommandParameter(Description = "Your api key")]
         string key)
     {
-        var apiKey = await apiKeyService.GetApiKeyAsync(key);
+        var apiKey = await context.ApiKeys.FirstOrDefaultAsync(k => k.Key == key);
 
         if (apiKey == null)
         {
@@ -107,6 +107,7 @@ public class ApiKeyCommandModule(
         }
 
         faction.ApiKeys.Remove(apiKey);
+        await context.SaveChangesAsync();
 
         var message = MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Key removed",
             $"api key: {apiKey.Key} removed");
@@ -119,9 +120,9 @@ public class ApiKeyCommandModule(
         [SlashCommandParameter(Description = "show keys for specific user")]
         GuildUser? user = null)
     {
-        var keys = await apiKeyService.GetAllApiKeysAsync();
+        var hasAnyKeys = await context.ApiKeys.AnyAsync();
 
-        if (!keys.Any())
+        if (!hasAnyKeys)
         {
             return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("No keys", "No api keys found");
         }
@@ -133,15 +134,21 @@ public class ApiKeyCommandModule(
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
         }
 
-        var publicKey = await apiKeyService.GetPublicApiKeyAsync();
+        var faction = await context.Factions
+            .Include(f => f.ApiKeys)
+            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+
+        var publicKey = faction?.GetKey(AccessLevel.Public);
         if (publicKey is null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("No public api key found");
         }
 
-        var tornProfile = await client.GetUserProfileByDiscordId(guildUser.Id, publicKey);
+        var tornProfile = await client.GetUserProfileByDiscordId(guildUser.Id, publicKey.Key);
+        publicKey.IncreaseUsage();
+        await context.SaveChangesAsync();
 
-        var apiKeys = await context.ApiKeys.ToListAsync();
+        var apiKeys = await context.ApiKeys.Where(k => k.TornPlayerId == tornProfile.Id).ToListAsync();
 
         if (!apiKeys.Any())
         {

@@ -20,7 +20,6 @@ namespace TornBot.Bot.Features.Banking;
 public class BankingCommandModule(
     IDbContextFactory<TornbotContext> contextFactory,
     TornApiClient client,
-    ApiKeyService apiKeyService,
     ILogger<BankingCommandModule> logger,
     ModuleConfigRepository moduleConfigRepository) : ApplicationCommandModule<ApplicationCommandContext>
 {
@@ -52,12 +51,14 @@ public class BankingCommandModule(
         }
 
         await using var context = await contextFactory.CreateDbContextAsync();
-        var faction = await context.Factions.SingleOrDefaultAsync(f => f.GuildId == Context.Guild.Id);
+        var faction = await context.Factions
+            .Include(f => f.ApiKeys)
+            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild.Id);
         if (faction == null)
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("This guild is not registered");
 
-        var limitedKey = await apiKeyService.GetLimitedApiKeyAsync(faction.FactionId, hasFactionAccess: true);
-        var publicKey = await apiKeyService.GetPublicApiKeyAsync();
+        var limitedKey = faction.GetKey(AccessLevel.LimitedAccess, requireFactionAccess: true);
+        var publicKey = faction.GetKey(AccessLevel.Public);
         if (limitedKey is null || publicKey is null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
@@ -65,26 +66,32 @@ public class BankingCommandModule(
         }
 
         var memberBalance = await client.GetMemberFactionBalanceByIdAsync(faction.FactionId, user.Id, limitedKey.Key);
+        limitedKey.IncreaseUsage();
         if (memberBalance == null)
         {
+            await context.SaveChangesAsync();
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
                 "Something went wrong while processing your request. Please try again later.");
         }
 
         if (memberBalance.Money < amount)
         {
+            await context.SaveChangesAsync();
             return MessageFactory.CreateEphermalMessage<InteractionMessageProperties>("Insufficient funds",
                 $"You only have {memberBalance.Money.ToString("C0", CultureInfo.CreateSpecificCulture("en-US"))}");
         }
 
         if (!bankingModuleConfig.BankerRoleId.HasValue)
         {
+            await context.SaveChangesAsync();
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Banker role not set");
         }
 
         var message =
             await CreateMessageAsync<InteractionMessageProperties>(bankingModuleConfig.BankerRoleId.Value, user.Id,
-                amount, publicKey);
+                amount, publicKey.Key);
+        publicKey.IncreaseUsage();
+        await context.SaveChangesAsync();
 
         return message;
     }
@@ -93,11 +100,13 @@ public class BankingCommandModule(
     public async Task<InteractionMessageProperties> Showbalance()
     {
         await using var context = await contextFactory.CreateDbContextAsync();
-        var faction = await context.Factions.SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+        var faction = await context.Factions
+            .Include(f => f.ApiKeys)
+            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
         if (faction == null)
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("This guild is not registered");
 
-        var limitedKey = await apiKeyService.GetLimitedApiKeyAsync(faction.FactionId, hasFactionAccess: true);
+        var limitedKey = faction.GetKey(AccessLevel.LimitedAccess, requireFactionAccess: true);
         if (limitedKey is null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
@@ -105,6 +114,8 @@ public class BankingCommandModule(
         }
 
         var balance = await client.GetMemberFactionBalanceByIdAsync(faction.FactionId, Context.User.Id, limitedKey.Key);
+        limitedKey.IncreaseUsage();
+        await context.SaveChangesAsync();
         if (balance == null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(

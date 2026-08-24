@@ -27,6 +27,7 @@ public class GetIncomingAttacksJob(
             var factions = await dbContext.Factions
                 .Include(f => f.ModuleConfigs)
                 .Include(faction => faction.TrackedAttacks)
+                .Include(f => f.ApiKeys)
                 .ToListAsync();
 
             foreach (var faction in factions)
@@ -52,7 +53,7 @@ public class GetIncomingAttacksJob(
                     continue;
                 }
 
-                var publicKey = faction.GetApiKey(AccessLevel.Public);
+                var publicKey = faction.GetKey(AccessLevel.Public);
                 if (publicKey is null)
                 {
                     logger.LogWarning("No public api key found for faction with id {FactionId}", faction.FactionId);

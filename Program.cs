@@ -66,6 +66,8 @@ builder.Services.AddQuartz(q =>
         trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
     q.ScheduleJob<DeleteExpiredTrackedAttacksJob>(trigger =>
         trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInMinutes(5).RepeatForever()));
+    q.ScheduleJob<ResetApiKeyUsageJob>(trigger =>
+        trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInMinutes(1).RepeatForever()));
     q.ScheduleJob<ApiKeyCleanupJob>(trigger =>
         trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInHours(1).RepeatForever()));
 });
@@ -102,7 +104,6 @@ builder.Services.AddHttpClient<TornStatClient>(client =>
     client.BaseAddress = new Uri("https://www.tornstats.com/api/v2/"));
 
 // Set DI services
-builder.Services.AddTransient<ApiKeyService>();
 builder.Services.AddTransient<VerificationService>();
 builder.Services.AddTransient<ModuleConfigRepository>();
 builder.Services.AddTransient<NotificationService>();

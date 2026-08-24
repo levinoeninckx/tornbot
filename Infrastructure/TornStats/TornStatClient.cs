@@ -1,11 +1,9 @@
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 using TornBot.Bot.Infrastructure.TornStats.Models;
-using TornBot.Bot.Shared;
-
 namespace TornBot.Bot.Infrastructure.TornStats;
 
-public class TornStatClient(HttpClient client, ApiKeyService keyService, ILogger<TornStatClient> logger)
+public class TornStatClient(HttpClient client, ILogger<TornStatClient> logger)
 {
     public async Task<ProfileDetails?> GetSpyProfileDetailsById(int playerId, string apiKey)
     {

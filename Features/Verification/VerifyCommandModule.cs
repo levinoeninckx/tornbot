@@ -1,7 +1,9 @@
+using Microsoft.EntityFrameworkCore;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
 using TornBot.Bot.Domain.Enums;
+using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
 
@@ -10,7 +12,7 @@ namespace TornBot.Bot.Features.Verification;
 public class VerifyCommandModule(
     TornApiClient client,
     VerificationService verificationService,
-    ApiKeyService apiKeyService) : ApplicationCommandModule<ApplicationCommandContext>
+    IDbContextFactory<TornbotContext> contextFactory) : ApplicationCommandModule<ApplicationCommandContext>
 {
     [RequireModuleEnabled(Module.Verification)]
     [RequireVerificationChannels]
@@ -25,13 +27,24 @@ public class VerifyCommandModule(
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("User not found.");
         }
 
-        var apiKey = await apiKeyService.GetPublicApiKeyAsync();
+        await using var context = await contextFactory.CreateDbContextAsync();
+        var faction = await context.Factions
+            .Include(f => f.ApiKeys)
+            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+
+        var apiKey = faction?.GetKey(AccessLevel.Public);
         if (apiKey is null)
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("No public api key found.");
         }
 
-        var tornUserProfile = await client.GetUserProfileByDiscordId(guildUser.Id, apiKey);
+        var tornUserProfile = await client.GetUserProfileByDiscordId(guildUser.Id, apiKey.Key);
+        if (tornUserProfile is null)
+        {
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("User not found in Torn");
+        }
+        apiKey.IncreaseUsage();
+        await context.SaveChangesAsync();
 
         var tornNickname = $"{tornUserProfile.Name} [{tornUserProfile.Id}]";
 

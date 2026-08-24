@@ -17,7 +17,6 @@ public class FfScouterCommandModule(
     TornApiClient client,
     FfScouterClient ffClient,
     IDbContextFactory<TornbotContext> contextFactory,
-    ApiKeyService apiKeyService,
     ILogger<FfScouterCommandModule> logger) : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("key", "set the api key you want to use")]
@@ -31,15 +30,6 @@ public class FfScouterCommandModule(
                 "Key is not registered with ffscouter");
         }
 
-        var publicKey = await apiKeyService.GetPublicApiKeyAsync();
-        if (publicKey is null)
-        {
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("No public api key found");
-        }
-
-        var userProfile = await client.GetUserProfileByDiscordId(Context.User.Id, publicKey);
-        var apiKey = new ApiKey(userProfile.Id, key, AccessLevel.FfScouter);
-
         try
         {
             await using var context = await contextFactory.CreateDbContextAsync();
@@ -52,9 +42,24 @@ public class FfScouterCommandModule(
                 return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Faction not registered");
             }
 
+            var publicKey = faction.GetKey(AccessLevel.Public);
+            if (publicKey is null)
+            {
+                return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("No public api key found");
+            }
+
+            var userProfile = await client.GetUserProfileByDiscordId(Context.User.Id, publicKey.Key);
+            if (userProfile is null)
+            {
+                return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("User not found in Torn");
+            }
+            publicKey.IncreaseUsage();
+
             if (faction.ApiKeys.Any(k => k.Key == key))
                 return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Key already registered");
 
+            var apiKey = new ApiKey(userProfile.Id, key, AccessLevel.FfScouter);
+            apiKey.IncreaseUsage();
             faction.ApiKeys.Add(apiKey);
 
             await context.SaveChangesAsync();

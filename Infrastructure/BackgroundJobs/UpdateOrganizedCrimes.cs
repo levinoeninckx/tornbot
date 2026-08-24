@@ -36,7 +36,7 @@ public class UpdateOrganizedCrimes(
         var config = await repository.GetOrganizedCrimeModuleConfigByGuildId(faction.GuildId);
         if (HasInvalidConfig(config, faction.GuildId)) return;
 
-        var minimalKey = faction.GetApiKey(AccessLevel.Minimal, requireFactionAccess: true);
+        var minimalKey = faction.GetKey(AccessLevel.Minimal, requireFactionAccess: true);
         if (minimalKey is null)
         {
             Logger.LogError("No minimal api key with faction access found for faction with id {FactionId}",
@@ -45,6 +45,7 @@ public class UpdateOrganizedCrimes(
         }
 
         var availableCrimes = await client.GetAvailableCrimesAsync(minimalKey.Key, ct);
+        minimalKey.IncreaseUsage();
         if (availableCrimes is null)
         {
             Logger.LogError("Could not retrieve available crimes for faction with id {FactionId}", faction.FactionId);
@@ -54,6 +55,7 @@ public class UpdateOrganizedCrimes(
         await ProcessAvailableCrimes(faction, availableCrimes, config!);
 
         var completedCrimes = await client.GetCompletedCrimesAsync(minimalKey.Key, ct);
+        minimalKey.IncreaseUsage();
         if (completedCrimes is null)
         {
             Logger.LogError("Could not retrieve completed crimes for faction with id {FactionId}", faction.FactionId);
@@ -158,7 +160,7 @@ public class UpdateOrganizedCrimes(
 
     private async Task<MessageProperties> CreateSuccessfulMessageAsync(Faction faction, FactionCrime crime)
     {
-        var publicKey = faction.GetApiKey(AccessLevel.Public);
+        var publicKey = faction.GetKey(AccessLevel.Public);
         if (publicKey is null)
         {
             Logger.LogError("No public api key found for faction with id {FactionId}", faction.FactionId);
@@ -167,6 +169,7 @@ public class UpdateOrganizedCrimes(
         var members = publicKey is null
             ? []
             : await client.GetFactionMembersByFactionIdAsync(faction.FactionId, publicKey.Key);
+        publicKey?.IncreaseUsage();
         var participatedMemberLookup = crime.Slots.Select(s => s.User!.Id).ToImmutableHashSet();
 
         var playerStringBuilder = new StringBuilder();
@@ -184,6 +187,7 @@ public class UpdateOrganizedCrimes(
         var itemsInfo = publicKey is null
             ? null
             : await client.GetItemsInfoAsync(crime.Rewards.Items.Select(i => i.Id), publicKey.Key);
+        publicKey?.IncreaseUsage();
         if (itemsInfo != null)
         {
             var itemInfoDict = itemsInfo.ToDictionary(i => i.Id);
