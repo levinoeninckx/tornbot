@@ -1,14 +1,17 @@
 using System.Globalization;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using NetCord;
 using NetCord.Rest;
 using NetCord.Services.ComponentInteractions;
+using TornBot.Bot.Domain.Enums;
+using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Banking;
 
-public class BankingButtonModule(TornApiClient client, ApiKeyService apiKeyService)
+public class BankingButtonModule(TornApiClient client, IDbContextFactory<TornbotContext> contextFactory)
     : ComponentInteractionModule<ButtonInteractionContext>
 {
     [RequireBankerRole]
@@ -19,14 +22,25 @@ public class BankingButtonModule(TornApiClient client, ApiKeyService apiKeyServi
         var guildUser = Context.User as GuildUser;
         var amount = Convert.ToInt32(requestedAmount);
 
-        var apiKey = await apiKeyService.GetPublicApiKeyAsync();
+        await using var context = await contextFactory.CreateDbContextAsync();
+        var faction = await context.Factions
+            .Include(f => f.ApiKeys)
+            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+
+        var apiKey = faction?.GetKey(AccessLevel.Public);
         if (apiKey is null)
         {
             await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
             return;
         }
 
-        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId), apiKey);
+        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId), apiKey.Key);
+        if (requestee is null)
+        {
+            await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
+            return;
+        }
+        apiKey.IncreaseUsage();
 
         var stringBuilder = new StringBuilder();
 
@@ -49,7 +63,15 @@ public class BankingButtonModule(TornApiClient client, ApiKeyService apiKeyServi
 
         await dmChannel.SendMessageAsync(dmMessage);
 
-        var acceptorUser = await client.GetUserProfileByDiscordId(guildUser!.Id, apiKey);
+        var acceptorUser = await client.GetUserProfileByDiscordId(guildUser!.Id, apiKey.Key);
+        if (acceptorUser is null)
+        {
+            await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
+            return;
+        }
+        apiKey.IncreaseUsage();
+        await context.SaveChangesAsync();
+
         var confirmButton =
             new ButtonProperties($"confirm_request:{requesteeId}:{amount}", "Confirm", ButtonStyle.Success);
 
@@ -98,15 +120,27 @@ public class BankingButtonModule(TornApiClient client, ApiKeyService apiKeyServi
             return;
         }
 
-        var apiKey = await apiKeyService.GetPublicApiKeyAsync();
+        await using var context = await contextFactory.CreateDbContextAsync();
+        var faction = await context.Factions
+            .Include(f => f.ApiKeys)
+            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+
+        var apiKey = faction?.GetKey(AccessLevel.Public);
         if (apiKey is null)
         {
             await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
             return;
         }
 
-        var decliner = await client.GetUserProfileByDiscordId(guildUser.Id, apiKey);
-        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId), apiKey);
+        var decliner = await client.GetUserProfileByDiscordId(guildUser.Id, apiKey.Key);
+        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId), apiKey.Key);
+        if (decliner is null || requestee is null)
+        {
+            await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
+            return;
+        }
+        apiKey.IncreaseUsage(2);
+        await context.SaveChangesAsync();
 
         var embed = new EmbedProperties
         {
@@ -136,15 +170,27 @@ public class BankingButtonModule(TornApiClient client, ApiKeyService apiKeyServi
             return;
         }
 
-        var apiKey = await apiKeyService.GetPublicApiKeyAsync();
+        await using var context = await contextFactory.CreateDbContextAsync();
+        var faction = await context.Factions
+            .Include(f => f.ApiKeys)
+            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+
+        var apiKey = faction?.GetKey(AccessLevel.Public);
         if (apiKey is null)
         {
             await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
             return;
         }
 
-        var confirmer = await client.GetUserProfileByDiscordId(guildUser.Id, apiKey);
-        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId), apiKey);
+        var confirmer = await client.GetUserProfileByDiscordId(guildUser.Id, apiKey.Key);
+        var requestee = await client.GetUserProfileByDiscordId(Convert.ToUInt64(requesteeId), apiKey.Key);
+        if (confirmer is null || requestee is null)
+        {
+            await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
+            return;
+        }
+        apiKey.IncreaseUsage(2);
+        await context.SaveChangesAsync();
 
         var embed = new EmbedProperties
         {

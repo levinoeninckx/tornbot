@@ -34,7 +34,7 @@ public class VerificationService(
             return null;
         }
 
-        var publicKey = faction.GetApiKey(AccessLevel.Public);
+        var publicKey = faction.GetKey(AccessLevel.Public);
         if (publicKey == null)
         {
             logger.LogWarning($"no public api key found for faction {faction.FactionId}");
@@ -42,6 +42,7 @@ public class VerificationService(
         }
 
         var profile = await client.GetUserProfileByDiscordId(userId, publicKey.Key);
+        publicKey.IncreaseUsage();
         var nickname = $"{profile.Name} [{profile.Id}]";
 
         var verificationModule = faction.ModuleConfigs.SingleOrDefault(c => c.Module == Module.Verification);
@@ -49,11 +50,14 @@ public class VerificationService(
 
         if (config == null)
         {
+            await context.SaveChangesAsync();
             logger.LogError($"verification config not found for faction {faction.FactionId}");
             return null;
         }
 
         var userFaction = await client.GetUserFactionAsync(profile.Id, publicKey.Key);
+        publicKey.IncreaseUsage();
+        await context.SaveChangesAsync();
 
         List<ulong> roleIds = [.. config.DefaultRoleIds];
         if (userFaction?.Id == faction.FactionId)

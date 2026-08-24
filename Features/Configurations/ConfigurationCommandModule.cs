@@ -47,6 +47,7 @@ public class ConfigurationCommandModule(
         if (keyInfo == null) return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Invalid API key");
 
         var initialKey = new ApiKey(keyInfo.User.Id, apiKey, AccessLevel.Public);
+        initialKey.IncreaseUsage();
         var faction = new Faction()
         {
             Name = string.Empty,
@@ -78,6 +79,8 @@ public class ConfigurationCommandModule(
         await SetOcTriggersAsync();
 
         var factionBasic = await client.GetFactionBasicAsync(faction.FactionId, apiKey);
+        initialKey.IncreaseUsage();
+        await context.SaveChangesAsync();
         if (factionBasic == null)
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to get faction information");
 

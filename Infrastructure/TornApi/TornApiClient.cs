@@ -4,7 +4,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using TornBot.Bot.Infrastructure.TornApi.Models;
-
 namespace TornBot.Bot.Infrastructure.TornApi;
 
 public class TornApiClient(HttpClient httpClient, ILogger<TornApiClient> logger)

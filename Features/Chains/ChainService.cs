@@ -1,5 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using NetCord.Rest;
+using TornBot.Bot.Domain.Enums;
+using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Infrastructure.TornApi.Models;
 using TornBot.Bot.Shared;
@@ -11,15 +14,15 @@ public class ChainService : BackgroundService
     private readonly RestClient _restClient;
     private readonly ChannelService _channelService;
     private readonly TornApiClient _apiClient;
-    private readonly ApiKeyService _apiKeyService;
+    private readonly IDbContextFactory<TornbotContext> _contextFactory;
 
     public ChainService(RestClient restClient, ChannelService channelService, TornApiClient apiClient,
-        ApiKeyService apiKeyService)
+        IDbContextFactory<TornbotContext> contextFactory)
     {
         _restClient = restClient;
         _channelService = channelService;
         _apiClient = apiClient;
-        _apiKeyService = apiKeyService;
+        _contextFactory = contextFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -32,10 +35,17 @@ public class ChainService : BackgroundService
 
             if (!channelid.HasValue) continue;
 
-            var apiKey = await _apiKeyService.GetPublicApiKeyAsync();
+            await using var context = await _contextFactory.CreateDbContextAsync(stoppingToken);
+            var faction = await context.Factions
+                .Include(f => f.ApiKeys)
+                .FirstOrDefaultAsync(stoppingToken);
+
+            var apiKey = faction?.GetKey(AccessLevel.Public);
             if (apiKey is null) continue;
 
-            var chain = await _apiClient.GetChainStateAsync(apiKey, stoppingToken);
+            var chain = await _apiClient.GetChainStateAsync(apiKey.Key, stoppingToken);
+            apiKey.IncreaseUsage();
+            await context.SaveChangesAsync(stoppingToken);
 
             if (chain.Timeout == 0) continue;
 

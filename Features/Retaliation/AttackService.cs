@@ -1,10 +1,11 @@
 using System.Collections.Immutable;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Features.Retaliation.Models;
 using TornBot.Bot.Infrastructure;
-using TornBot.Bot.Shared;
 using AttackResult = TornBot.Bot.Domain.Enums.AttackResult;
 
 namespace TornBot.Bot.Features.Retaliation;
@@ -12,12 +13,17 @@ namespace TornBot.Bot.Features.Retaliation;
 public class AttackService(
     HttpClient httpClient,
     IPlayerProvider playerProvider,
-    ApiKeyService apiKeyService,
+    IDbContextFactory<TornbotContext> contextFactory,
     ILogger<AttackService> logger) : IAttackService
 {
     public async Task<IReadOnlyList<Attack>> GetOutgoingAttacksByIdAsync(int factionId)
     {
-        var key = await apiKeyService.GetLimitedApiKeyAsync(factionId, hasFactionAccess: true);
+        await using var context = await contextFactory.CreateDbContextAsync();
+        var faction = await context.Factions
+            .Include(f => f.ApiKeys)
+            .SingleOrDefaultAsync(f => f.FactionId == factionId);
+
+        var key = faction?.GetKey(AccessLevel.LimitedAccess, requireFactionAccess: true);
         if (key == null)
         {
             logger.LogInformation("No available limited key with faction api access");
@@ -25,6 +31,8 @@ public class AttackService(
         }
 
         var response = await httpClient.GetAsync($"?filters=outgoing&limit=1000&sort=DESC&key={key}");
+        key.IncreaseUsage();
+        await context.SaveChangesAsync();
 
         if (!response.IsSuccessStatusCode)
         {
@@ -55,7 +63,12 @@ public class AttackService(
 
     public async Task<IReadOnlyList<Attack>> GetIncomingAttacksByIdAsync(int factionId)
     {
-        var key = await apiKeyService.GetLimitedApiKeyAsync(factionId, hasFactionAccess: true);
+        await using var context = await contextFactory.CreateDbContextAsync();
+        var faction = await context.Factions
+            .Include(f => f.ApiKeys)
+            .SingleOrDefaultAsync(f => f.FactionId == factionId);
+
+        var key = faction?.GetKey(AccessLevel.LimitedAccess, requireFactionAccess: true);
         if (key == null)
         {
             logger.LogInformation("No available limited key with faction api access");
@@ -63,6 +76,8 @@ public class AttackService(
         }
 
         var response = await httpClient.GetAsync($"?filters=incoming&limit=1000&sort=DESC&key={key}");
+        key.IncreaseUsage();
+        await context.SaveChangesAsync();
 
         if (!response.IsSuccessStatusCode)
         {

@@ -2,9 +2,11 @@ using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using NetCord.Rest;
 using NetCord.Services.ApplicationCommands;
 using TornBot.Bot.Domain.Enums;
+using TornBot.Bot.Infrastructure;
 using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Infrastructure.TornApi.Models;
 using TornBot.Bot.Shared;
@@ -16,7 +18,7 @@ namespace TornBot.Bot.Features.OrganizedCrime;
 [RequireOrganizedCrimesAllowedRoles]
 [RequireOrganizedCrimeRestrictedChannels]
 [SlashCommand("oc", "organized crime related commands")]
-public class OrganizedCrimeCommandModule(TornApiClient client, ApiKeyService apiKeyService)
+public class OrganizedCrimeCommandModule(TornApiClient client, IDbContextFactory<TornbotContext> contextFactory)
     : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("profits", "see how much your faction has earned with organized crime")]
@@ -24,8 +26,21 @@ public class OrganizedCrimeCommandModule(TornApiClient client, ApiKeyService api
     {
         await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredMessage());
 
-        var minimalKey = await apiKeyService.GetMinimalApiKeyAsync(Context.Guild!.Id, hasFactionAccess: true);
-        var publicKey = await apiKeyService.GetPublicApiKeyAsync();
+        await using var context = await contextFactory.CreateDbContextAsync();
+        var faction = await context.Factions
+            .Include(f => f.ApiKeys)
+            .SingleOrDefaultAsync(f => f.GuildId == Context.Guild!.Id);
+
+        if (faction == null)
+        {
+            await Context.Interaction.SendFollowupMessageAsync(
+                MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                    "This guild is not registered"));
+            return;
+        }
+
+        var minimalKey = faction.GetKey(AccessLevel.Minimal, requireFactionAccess: true);
+        var publicKey = faction.GetKey(AccessLevel.Public);
         if (minimalKey is null || publicKey is null)
         {
             await Context.Interaction.SendFollowupMessageAsync(
@@ -35,8 +50,10 @@ public class OrganizedCrimeCommandModule(TornApiClient client, ApiKeyService api
         }
 
         var crimes = await client.GetCompletedCrimesAsync(minimalKey.Key);
+        minimalKey.IncreaseUsage();
         if (crimes == null)
         {
+            await context.SaveChangesAsync();
             await Context.Interaction.SendFollowupMessageAsync(
                 MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
                     "Something went wrong while contacting the torn api"));
@@ -50,8 +67,9 @@ public class OrganizedCrimeCommandModule(TornApiClient client, ApiKeyService api
             .ToImmutableList();
 
         var rewardItemInfo =
-            (await client.GetItemsInfoAsync(rewardItems.Select(i => i.Id), publicKey) ?? Array.Empty<TornItem>())
+            (await client.GetItemsInfoAsync(rewardItems.Select(i => i.Id), publicKey.Key) ?? Array.Empty<TornItem>())
             .ToFrozenDictionary(i => i.Id, i => i);
+        publicKey.IncreaseUsage();
 
         var rewardItemsTotalValue = rewardItems
             .Sum(i => rewardItemInfo[i.Id].Value.MarketPrice);
@@ -66,7 +84,9 @@ public class OrganizedCrimeCommandModule(TornApiClient client, ApiKeyService api
             .GroupBy(s => s)
             .ToFrozenDictionary(s => s.Key, s => s.Count());
 
-        var usedItemsInfo = await client.GetItemsInfoAsync(usedItems.Keys, publicKey);
+        var usedItemsInfo = await client.GetItemsInfoAsync(usedItems.Keys, publicKey.Key);
+        publicKey.IncreaseUsage();
+        await context.SaveChangesAsync();
         if (usedItemsInfo is null)
         {
             return;

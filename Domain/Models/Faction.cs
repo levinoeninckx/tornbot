@@ -14,7 +14,12 @@ public class Faction
     public List<RetalOpportunity> TrackedAttacks { get; set; } = [];
     public DateTime CreatedAt { get; set; }
 
-    public ApiKey? GetApiKey(AccessLevel accessLevel, bool requireFactionAccess = false)
+    public ApiKey? GetKey(AccessLevel accessLevel, bool requireFactionAccess = false)
         => ApiKeys.FirstOrDefault(k =>
-            k.AccessLevel == accessLevel && (!requireFactionAccess || k.HasFactionAccess));
+            k.AccessLevel == accessLevel &&
+            (accessLevel == AccessLevel.FfScouter || accessLevel == AccessLevel.TornStats || k.UsageCount < 100) &&
+            (!requireFactionAccess || k.HasFactionAccess));
+
+    public ApiKey? GetApiKey(AccessLevel accessLevel, bool requireFactionAccess = false)
+        => GetKey(accessLevel, requireFactionAccess);
 }

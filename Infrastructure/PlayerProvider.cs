@@ -20,6 +20,7 @@ public class PlayerProvider(
     public async Task<Player?> GetPlayerByTornIdAsync(int tornId, ApiKey apiKey)
     {
         var playerProfile = await tornClient.GetUserProfileById(tornId, apiKey.Key);
+        apiKey.IncreaseUsage();
         if (playerProfile is null)
         {
             logger.LogInformation("Player profile not found for Torn ID {TornId}", tornId);
@@ -29,6 +30,7 @@ public class PlayerProvider(
         var battleStat = await GetPlayerBattlestatsByIdAsync(tornId, apiKey);
 
         var playerDetails = await tornStatClient.GetSpyProfileDetailsById(tornId, apiKey.Key);
+        apiKey.IncreaseUsage();
         if (playerDetails?.Data is null)
         {
             logger.LogInformation("Player details not found for Torn ID {TornId}", tornId);
@@ -72,6 +74,7 @@ public class PlayerProvider(
     private async Task<BattleStat?> GetPlayerBattlestatsByIdAsync(int tornId, ApiKey apiKey)
     {
         var spies = await tornStatClient.GetSpyProfileDetailsById(tornId, apiKey.Key);
+        apiKey.IncreaseUsage();
         if (spies is not null)
         {
             logger.LogInformation("Spies found for Torn ID {TornId} with tornstats API", tornId);
@@ -79,6 +82,7 @@ public class PlayerProvider(
         }
 
         var ffScouterStats = await ffScouterClient.GetPlayerStats(apiKey.Key, tornId);
+        apiKey.IncreaseUsage();
         if (ffScouterStats is not null)
         {
             logger.LogInformation("Spies found for Torn ID {TornId} with ffscouter API", tornId);
@@ -91,6 +95,7 @@ public class PlayerProvider(
     public async Task<Player?> GetPlayerByDiscordIdAsync(ulong discordId, ApiKey apiKey)
     {
         var playerProfile = await tornClient.GetUserProfileByDiscordId(discordId, apiKey.Key);
+        apiKey.IncreaseUsage();
         if (playerProfile is null)
         {
             logger.LogInformation("Player profile not found for Discord ID {DiscordId}", discordId);

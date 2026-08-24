@@ -25,6 +25,7 @@ public class GetOutgoingAttacksJob(
         var factions = await dbContext.Factions
             .Include(f => f.ModuleConfigs)
             .Include(faction => faction.TrackedAttacks)
+            .Include(f => f.ApiKeys)
             .ToListAsync();
 
         foreach (var faction in factions)

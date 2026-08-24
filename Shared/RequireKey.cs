@@ -24,7 +24,10 @@ public class RequireKey(AccessLevel accessLevel, bool needsFactionAccess) : Prec
             .Where(f => context.Guild!.Id == f.GuildId)
             .SelectMany(f => f.ApiKeys);
         
-        var hasRequiredKey = needsFactionAccess ? await queryable.AnyAsync(k => k.AccessLevel == accessLevel && k.HasFactionAccess == needsFactionAccess) : await queryable.AnyAsync(k => k.AccessLevel == accessLevel);
+        var isStandardKey = accessLevel != AccessLevel.FfScouter && accessLevel != AccessLevel.TornStats;
+        var hasRequiredKey = needsFactionAccess
+            ? await queryable.AnyAsync(k => k.AccessLevel == accessLevel && k.HasFactionAccess == needsFactionAccess && (!isStandardKey || k.UsageCount < 100))
+            : await queryable.AnyAsync(k => k.AccessLevel == accessLevel && (!isStandardKey || k.UsageCount < 100));
 
         if (needsFactionAccess && !hasRequiredKey)
         {
