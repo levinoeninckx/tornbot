@@ -66,6 +66,8 @@ builder.Services.AddQuartz(q =>
         trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInSeconds(30).RepeatForever()));
     q.ScheduleJob<DeleteExpiredTrackedAttacksJob>(trigger =>
         trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInMinutes(5).RepeatForever()));
+    q.ScheduleJob<ApiKeyCleanupJob>(trigger =>
+        trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInHours(1).RepeatForever()));
 });
 
 builder.Services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
