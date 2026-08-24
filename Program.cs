@@ -68,6 +68,8 @@ builder.Services.AddQuartz(q =>
         trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInMinutes(5).RepeatForever()));
     q.ScheduleJob<ResetApiKeyUsageJob>(trigger =>
         trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInMinutes(1).RepeatForever()));
+    q.ScheduleJob<ApiKeyCleanupJob>(trigger =>
+        trigger.StartNow().WithSimpleSchedule(x => x.WithIntervalInHours(1).RepeatForever()));
 });
 
 builder.Services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
