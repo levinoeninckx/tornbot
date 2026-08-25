@@ -25,6 +25,7 @@ public class GetIncomingAttacksJob(
         {
             await using var dbContext = await dbContextFactory.CreateDbContextAsync();
             var factions = await dbContext.Factions
+                .AsSplitQuery()
                 .Include(f => f.ModuleConfigs)
                 .Include(faction => faction.TrackedAttacks)
                 .Include(f => f.ApiKeys)
@@ -33,7 +34,15 @@ public class GetIncomingAttacksJob(
             foreach (var faction in factions)
             {
                 var trackedAttacksIdHashSet = faction.TrackedAttacks.Select(a => a.AttackId).ToImmutableHashSet();
-                var incomingAttacks = await attackService.GetIncomingAttacksByIdAsync(faction.FactionId);
+
+                var limitedKey = faction.GetKey(AccessLevel.LimitedAccess, requireFactionAccess: true);
+                if (limitedKey is null)
+                {
+                    logger.LogInformation("Faction with id {factionId} does not have a limited key with faction api access");
+                    continue;
+                }
+
+                var incomingAttacks = await attackService.GetIncomingAttacksByIdAsync(faction.FactionId, limitedKey);
 
                 var newRetals = incomingAttacks
                     .Where(a => !trackedAttacksIdHashSet.Contains(a.Id))
@@ -62,8 +71,7 @@ public class GetIncomingAttacksJob(
 
                 foreach (var newRetal in newRetals)
                 {
-                    var attacker =
-                        await playerProvider.GetPlayerByTornIdAsync(newRetal.AttackerId!.Value, publicKey);
+                    var attacker = await playerProvider.GetPlayerByTornIdAsync(newRetal.AttackerId!.Value, publicKey);
                     var defender = await playerProvider.GetPlayerByTornIdAsync(newRetal.DefenderId, publicKey);
 
                     if (attacker is null || defender is null)

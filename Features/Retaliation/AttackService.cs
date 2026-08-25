@@ -12,26 +12,29 @@ namespace TornBot.Bot.Features.Retaliation;
 
 public class AttackService(
     HttpClient httpClient,
-    IPlayerProvider playerProvider,
     IDbContextFactory<TornbotContext> contextFactory,
     ILogger<AttackService> logger) : IAttackService
 {
-    public async Task<IReadOnlyList<Attack>> GetOutgoingAttacksByIdAsync(int factionId)
+    public async Task<IReadOnlyList<Attack>> GetOutgoingAttacksByIdAsync(int factionId, ApiKey limitedKey)
     {
         await using var context = await contextFactory.CreateDbContextAsync();
         var faction = await context.Factions
             .Include(f => f.ApiKeys)
             .SingleOrDefaultAsync(f => f.FactionId == factionId);
 
-        var key = faction?.GetKey(AccessLevel.LimitedAccess, requireFactionAccess: true);
-        if (key == null)
+        if (limitedKey.AccessLevel is not AccessLevel.LimitedAccess)
         {
-            logger.LogInformation("No available limited key with faction api access");
+            logger.LogWarning("Provided key does not have limited access");
+            return [];
+        }
+        if (!limitedKey.HasFactionAccess)
+        {
+            logger.LogWarning("Provided key does not have faction api access");
             return [];
         }
 
-        var response = await httpClient.GetAsync($"?filters=outgoing&limit=1000&sort=DESC&key={key}");
-        key.IncreaseUsage();
+        var response = await httpClient.GetAsync($"?filters=outgoing&limit=1000&sort=DESC&key={limitedKey}");
+        limitedKey.IncreaseUsage();
         await context.SaveChangesAsync();
 
         if (!response.IsSuccessStatusCode)
@@ -61,7 +64,7 @@ public class AttackService(
             .ToImmutableList();
     }
 
-    public async Task<IReadOnlyList<Attack>> GetIncomingAttacksByIdAsync(int factionId)
+    public async Task<IReadOnlyList<Attack>> GetIncomingAttacksByIdAsync(int factionId, ApiKey limitedKey)
     {
         await using var context = await contextFactory.CreateDbContextAsync();
         var faction = await context.Factions

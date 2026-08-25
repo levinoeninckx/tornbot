@@ -30,7 +30,14 @@ public class GetOutgoingAttacksJob(
 
         foreach (var faction in factions)
         {
-            var outgoingAttacks = await attackService.GetOutgoingAttacksByIdAsync(faction.FactionId);
+            var limitedKey = faction.GetKey(AccessLevel.LimitedAccess, requireFactionAccess: true);
+            if (limitedKey is null)
+            {
+                logger.LogInformation("Faction with id {factionId} does not have a limited key with faction api access", faction.Id);
+                continue;
+            }
+
+            var outgoingAttacks = await attackService.GetOutgoingAttacksByIdAsync(faction.FactionId, limitedKey);
             var retalTargetDict = faction.TrackedAttacks
                 .GroupBy(a => a.TargetPlayerId)
                 .ToImmutableDictionary(a => a.Key);
