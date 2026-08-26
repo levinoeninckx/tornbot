@@ -57,7 +57,7 @@ public class GetIncomingAttacksJob(
                     GetNotificationParameters(faction.ModuleConfigs.Single(c => c.Module == Module.Retal));
                 if (notificationParameters is null)
                 {
-                    logger.LogInformation("No notification parameters found for faction {factionId}",
+                    logger.LogWarning("No notification parameters found for faction {factionId}",
                         faction.FactionId);
                     continue;
                 }
@@ -69,14 +69,20 @@ public class GetIncomingAttacksJob(
                     continue;
                 }
 
+                var ffKey = faction.GetKey(AccessLevel.FfScouter);
+                var ffscouterApiKey = new FFScouterApiKey(ffKey.Key, ffKey.TornPlayerId);
+                var tsKey = faction.GetKey(AccessLevel.TornStats);
+                var tornStatsApiKey = new TornStatApiKey(ffKey.Key, ffKey.TornPlayerId);
+
                 foreach (var newRetal in newRetals)
                 {
-                    var attacker = await playerProvider.GetPlayerByTornIdAsync(newRetal.AttackerId!.Value, publicKey);
-                    var defender = await playerProvider.GetPlayerByTornIdAsync(newRetal.DefenderId, publicKey);
+                    var attacker = await playerProvider.GetPlayerByTornIdAsync(newRetal.AttackerId!.Value, publicKey, ffscouterApiKey, tornStatsApiKey);
+                    var defender = await playerProvider.GetPlayerByTornIdAsync(newRetal.DefenderId, publicKey, ffscouterApiKey, tornStatsApiKey);
 
                     if (attacker is null || defender is null)
                     {
-                        logger.LogInformation("Could not find attacker or defender for retal {retalId}", newRetal.Id);
+                        logger
+                            .LogError("Could not find attacker {attackerId} or defender {defenderId} for retal {retalId}", newRetal.AttackerId, newRetal.DefenderId, newRetal.Id);
                         continue;
                     }
 
@@ -103,6 +109,8 @@ public class GetIncomingAttacksJob(
                     };
 
                     faction.TrackedAttacks.Add(retalOpp);
+
+                    logger.LogInformation("new retalopp created with messageId {messageId}", message.Id);
                 }
             }
 

@@ -20,9 +20,10 @@ public class ApiKeyCleanupJob(
     {
         var ct = context.CancellationToken;
 
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(ct);
+
         try
         {
-            await using var dbContext = await dbContextFactory.CreateDbContextAsync(ct);
 
             var apiKeys = await dbContext.ApiKeys.ToListAsync(ct);
 
@@ -47,6 +48,7 @@ public class ApiKeyCleanupJob(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error in {JobName}", nameof(ApiKeyCleanupJob));
+            throw new JobExecutionException() { RefireImmediately = true };
         }
     }
 

@@ -39,8 +39,7 @@ public class UpdateOrganizedCrimes(
         var minimalKey = faction.GetKey(AccessLevel.Minimal, requireFactionAccess: true);
         if (minimalKey is null)
         {
-            Logger.LogError("No minimal api key with faction access found for faction with id {FactionId}",
-                faction.FactionId);
+            Logger.LogWarning("No minimal api key with faction access found for faction with id {FactionId}", faction.FactionId);
             return;
         }
 

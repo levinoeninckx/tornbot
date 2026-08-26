@@ -43,7 +43,7 @@ public class DeleteExpiredTrackedAttacksJob(
 
             if (retalConfig is null)
             {
-                logger.LogWarning("Could not deserialize retal module config for faction {factionId}",
+                logger.LogError("Could not deserialize retal module config for faction {factionId}",
                     faction.FactionId);
                 continue;
             }

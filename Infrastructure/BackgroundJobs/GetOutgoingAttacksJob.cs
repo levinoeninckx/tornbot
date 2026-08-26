@@ -52,7 +52,7 @@ public class GetOutgoingAttacksJob(
             var retalModuleConfig = config.Config.Deserialize<RetalModuleConfig>();
             if (retalModuleConfig is null)
             {
-                logger.LogWarning("Could not deserialize retal module config for faction {factionId}",
+                logger.LogError("Could not deserialize retal module config for faction {factionId}",
                     faction.FactionId);
                 continue;
             }
@@ -65,7 +65,7 @@ public class GetOutgoingAttacksJob(
 
             if (!retalModuleConfig.NotificationChannelId.HasValue || !retalModuleConfig.NotificationRoleId.HasValue)
             {
-                logger.LogInformation("Notification channel or role not set for faction {factionId}",
+                logger.LogWarning("Notification channel or role not set for faction {factionId}",
                     faction.FactionId);
                 continue;
             }
