@@ -18,17 +18,16 @@ public class ResetApiKeyUsageJob(
 
             foreach (var apiKey in apiKeys)
             {
-                if (apiKey.AccessLevel != AccessLevel.TornStats && apiKey.AccessLevel != AccessLevel.FfScouter)
-                {
-                    apiKey.UsageCount = 0;
-                }
+                apiKey.UsageCount = 0;
             }
 
-            await dbContext.SaveChangesAsync();
+            var rowsAffected = await dbContext.SaveChangesAsync();
+            logger.LogInformation("Reset {count} keys to 0 usage", rowsAffected);
         }
         catch (Exception e)
         {
             logger.LogError(e, "Error in {jobName}", nameof(ResetApiKeyUsageJob));
+            throw new JobExecutionException() { RefireImmediately = true };
         }
     }
 }

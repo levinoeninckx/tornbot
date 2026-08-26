@@ -50,7 +50,11 @@ var connectionString = builder.Configuration["ConnectionStrings:Tornbot"];
 
 if (string.IsNullOrWhiteSpace(connectionString)) throw new InvalidOperationException("Connection string is not set");
 
-builder.Services.AddDbContextFactory<TornbotContext>(options => options.UseNpgsql(connectionString));
+builder.Services.AddDbContextFactory<TornbotContext>(options =>
+{
+    options.UseNpgsql(connectionString);
+    options.EnableSensitiveDataLogging();
+});
 
 builder.Services.AddQuartz(q =>
 {

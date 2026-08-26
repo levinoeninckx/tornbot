@@ -38,7 +38,7 @@ public class GetIncomingAttacksJob(
                 var limitedKey = faction.GetKey(AccessLevel.LimitedAccess, requireFactionAccess: true);
                 if (limitedKey is null)
                 {
-                    logger.LogInformation("Faction with id {factionId} does not have a limited key with faction api access");
+                    logger.LogInformation("Faction with id {factionId} does not have a limited key with faction api access", faction.Id);
                     continue;
                 }
 

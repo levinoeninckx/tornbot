@@ -24,7 +24,7 @@ public class GetOutgoingAttacksJob(
         await using var dbContext = await dbContextFactory.CreateDbContextAsync();
         var factions = await dbContext.Factions
             .Include(f => f.ModuleConfigs)
-            .Include(faction => faction.TrackedAttacks)
+            .Include(f => f.TrackedAttacks)
             .Include(f => f.ApiKeys)
             .ToListAsync();
 
@@ -75,7 +75,6 @@ public class GetOutgoingAttacksJob(
                 .Where(a => retalTargetDict.Keys.Contains(a.DefenderId))
                 .ToImmutableList();
 
-            var updateTasks = new List<Task>();
             foreach (var trackedAttack in faction.TrackedAttacks)
             {
                 var claimedRetal = validOutgoingAttacks
@@ -94,7 +93,7 @@ public class GetOutgoingAttacksJob(
                     await restClient.GetMessageAsync(retalModuleConfig.NotificationChannelId.Value,
                         trackedAttack.MessageId);
 
-                var task = restClient.ModifyMessageAsync(retalModuleConfig.NotificationChannelId.Value, message.Id,
+                await restClient.ModifyMessageAsync(retalModuleConfig.NotificationChannelId.Value, message.Id,
                     messageProperties =>
                     {
                         if (messageProperties.Embeds is null) return;
@@ -116,15 +115,10 @@ public class GetOutgoingAttacksJob(
                         ];
                     }
                 );
-
-                updateTasks.Add(task);
             }
 
-            await Task.WhenAll(updateTasks);
-            await dbContext.SaveChangesAsync();
-
-            logger.LogInformation("Updated {count} tracked attacks for faction {factionId}", updateTasks.Count,
-                faction.FactionId);
+            var rowsAffected = await dbContext.SaveChangesAsync();
+            logger.LogInformation("Updated {count} tracked attacks for faction {factionId}", rowsAffected, faction.FactionId);
         }
     }
 }

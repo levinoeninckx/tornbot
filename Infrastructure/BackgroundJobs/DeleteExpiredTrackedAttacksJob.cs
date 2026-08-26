@@ -51,13 +51,15 @@ public class DeleteExpiredTrackedAttacksJob(
             if (retalConfig.State != ModuleState.Enabled)
                 continue;
 
-            var updateTasks =
-                expiredAttacks.Select(a => UpdateMessageAsync(retalConfig.NotificationChannelId!.Value, a));
-
-            await Task.WhenAll(updateTasks);
+            foreach (var a in expiredAttacks)
+            {
+                await UpdateMessageAsync(retalConfig.NotificationChannelId!.Value, a);
+            }
         }
 
-        await dbContext.SaveChangesAsync();
+        var rowsAffected = await dbContext.SaveChangesAsync();
+
+        logger.LogInformation("Removed {count} tracked attacks from the database", rowsAffected);
     }
 
     private async Task UpdateMessageAsync(ulong channelId, RetalOpportunity opportunity)
