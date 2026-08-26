@@ -70,8 +70,21 @@ public class GetIncomingAttacksJob(
                 }
 
                 var ffKey = faction.GetKey(AccessLevel.FfScouter);
+                if (ffKey is null)
+                {
+                    logger.LogWarning("No FFScouter key found for faction {factionId}", faction.Id);
+                    continue;
+                }
+
                 var ffscouterApiKey = new FFScouterApiKey(ffKey.Key, ffKey.TornPlayerId);
+
                 var tsKey = faction.GetKey(AccessLevel.TornStats);
+                if (tsKey is null)
+                {
+                    logger.LogWarning("No TornStats key found for faction {factionId}", faction.Id);
+                    continue;
+                }
+
                 var tornStatsApiKey = new TornStatApiKey(ffKey.Key, ffKey.TornPlayerId);
 
                 foreach (var newRetal in newRetals)
