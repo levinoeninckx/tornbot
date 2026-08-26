@@ -19,6 +19,7 @@ public class DeleteExpiredTrackedAttacksJob(
         await using var dbContext = await dbContextFactory.CreateDbContextAsync();
 
         var factions = await dbContext.Factions
+            .AsSplitQuery()
             .Include(f => f.TrackedAttacks)
             .Include(f => f.ModuleConfigs)
             .ToListAsync();

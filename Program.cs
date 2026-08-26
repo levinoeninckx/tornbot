@@ -53,7 +53,9 @@ if (string.IsNullOrWhiteSpace(connectionString)) throw new InvalidOperationExcep
 builder.Services.AddDbContextFactory<TornbotContext>(options =>
 {
     options.UseNpgsql(connectionString);
-    options.EnableSensitiveDataLogging();
+
+    if (builder.Environment.IsDevelopment())
+        options.EnableSensitiveDataLogging();
 });
 
 builder.Services.AddQuartz(q =>

@@ -23,6 +23,7 @@ public class GetOutgoingAttacksJob(
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync();
         var factions = await dbContext.Factions
+            .AsSplitQuery()
             .Include(f => f.ModuleConfigs)
             .Include(f => f.TrackedAttacks)
             .Include(f => f.ApiKeys)
@@ -33,7 +34,8 @@ public class GetOutgoingAttacksJob(
             var limitedKey = faction.GetKey(AccessLevel.LimitedAccess, requireFactionAccess: true);
             if (limitedKey is null)
             {
-                logger.LogInformation("Faction with id {factionId} does not have a limited key with faction api access", faction.Id);
+                logger.LogInformation("Faction with id {factionId} does not have a limited key with faction api access",
+                    faction.Id);
                 continue;
             }
 
@@ -118,7 +120,8 @@ public class GetOutgoingAttacksJob(
             }
 
             var rowsAffected = await dbContext.SaveChangesAsync();
-            logger.LogInformation("Updated {count} tracked attacks for faction {factionId}", rowsAffected, faction.FactionId);
+            logger.LogInformation("Updated {count} tracked attacks for faction {factionId}", rowsAffected,
+                faction.FactionId);
         }
     }
 }
