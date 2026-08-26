@@ -26,6 +26,7 @@ public class UpdateOrganizedCrimes(
     protected override Task<List<Faction>> LoadFactionsAsync(TornbotContext dbContext, CancellationToken ct)
     {
         return dbContext.Factions
+            .AsSplitQuery()
             .Include(f => f.OrganizedCrimes)
             .Include(f => f.ApiKeys)
             .ToListAsync(ct);
@@ -39,7 +40,8 @@ public class UpdateOrganizedCrimes(
         var minimalKey = faction.GetKey(AccessLevel.Minimal, requireFactionAccess: true);
         if (minimalKey is null)
         {
-            Logger.LogWarning("No minimal api key with faction access found for faction with id {FactionId}", faction.FactionId);
+            Logger.LogWarning("No minimal api key with faction access found for faction with id {FactionId}",
+                faction.FactionId);
             return;
         }
 

@@ -17,10 +17,12 @@ public class PlayerProvider(
     TornApiClient tornClient,
     ILogger<PlayerProvider> logger) : IPlayerProvider
 {
-    public async Task<Player?> GetPlayerByTornIdAsync(int tornId, ApiKey apiKey, FFScouterApiKey fFScouterApiKey, TornStatApiKey tornStatApiKey)
+    public async Task<Player?> GetPlayerByTornIdAsync(int tornId, ApiKey apiKey, FFScouterApiKey fFScouterApiKey,
+        TornStatApiKey tornStatApiKey)
     {
         var playerProfile = await tornClient.GetUserProfileById(tornId, apiKey.Key);
         apiKey.IncreaseUsage();
+
         if (playerProfile is null)
         {
             logger.LogInformation("Player profile not found for Torn ID {TornId}", tornId);
@@ -31,6 +33,7 @@ public class PlayerProvider(
 
         var playerDetails = await tornStatClient.GetSpyProfileDetailsById(tornId, apiKey.Key);
         apiKey.IncreaseUsage();
+
         if (playerDetails?.Data is null)
         {
             logger.LogInformation("Player details not found for Torn ID {TornId}", tornId);
@@ -71,7 +74,8 @@ public class PlayerProvider(
         };
     }
 
-    private async Task<BattleStat?> GetPlayerBattlestatsByIdAsync(int tornId, FFScouterApiKey fFScouterApiKey, TornStatApiKey tornStatApiKey)
+    private async Task<BattleStat?> GetPlayerBattlestatsByIdAsync(int tornId, FFScouterApiKey fFScouterApiKey,
+        TornStatApiKey tornStatApiKey)
     {
         var spies = await tornStatClient.GetSpyProfileDetailsById(tornId, fFScouterApiKey.Key);
         if (spies is not null)
@@ -90,7 +94,8 @@ public class PlayerProvider(
         return null;
     }
 
-    public async Task<Player?> GetPlayerByDiscordIdAsync(ulong discordId, ApiKey publicKey, FFScouterApiKey fFScouterApiKey, TornStatApiKey tornStatApiKey)
+    public async Task<Player?> GetPlayerByDiscordIdAsync(ulong discordId, ApiKey publicKey,
+        FFScouterApiKey fFScouterApiKey, TornStatApiKey tornStatApiKey)
     {
         var playerProfile = await tornClient.GetUserProfileByDiscordId(discordId, publicKey.Key);
         publicKey.IncreaseUsage();
