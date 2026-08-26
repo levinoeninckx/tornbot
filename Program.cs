@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NetCord;
@@ -53,6 +54,7 @@ if (string.IsNullOrWhiteSpace(connectionString)) throw new InvalidOperationExcep
 builder.Services.AddDbContextFactory<TornbotContext>(options =>
 {
     options.UseNpgsql(connectionString);
+    options.ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning));
 
     if (builder.Environment.IsDevelopment())
         options.EnableSensitiveDataLogging();
