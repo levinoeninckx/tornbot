@@ -37,6 +37,7 @@ public class ConfigurationCommandModule(
 
         try
         {
+            await Context.Interaction.SendResponseAsync(InteractionCallback.DeferredModifyMessage);
             await using var context = await contextFactory.CreateDbContextAsync();
             var isRegistered = await context.Factions.AnyAsync(f => f.GuildId == Context.Guild.Id);
 
