@@ -63,9 +63,16 @@ public class TornStatClient(HttpClient client, ILogger<TornStatClient> logger)
                 return false;
             }
 
+            if (keyCheck.Message != "Torn Stats key detected. No action necessary.")
+            {
+                logger.LogInformation("Not a valid Tornstats api key: {key}", key);
+                return false;
+            }
+
             logger.LogInformation("Key {key} status: {status} with message {message}", key, keyCheck.Status,
                 keyCheck.Message);
-            return keyCheck.Status;
+
+            return true;
         }
         catch (Exception ex)
         {
