@@ -78,14 +78,14 @@ public class PlayerProvider(
         TornStatApiKey tornStatApiKey)
     {
         var spies = await tornStatClient.GetSpyProfileDetailsById(tornId, fFScouterApiKey.Key);
-        if (spies is not null)
+        if (spies?.Spy is not null)
         {
             logger.LogInformation("Spies found for Torn ID {TornId} with tornstats API", tornId);
             return MapProfileDetailsToBattleStat(spies);
         }
 
         var ffScouterStats = await ffScouterClient.GetPlayerStats(tornStatApiKey.Key, tornId);
-        if (ffScouterStats is not null)
+        if (ffScouterStats?.BsEstimate is not null)
         {
             logger.LogInformation("Spies found for Torn ID {TornId} with ffscouter API", tornId);
             return MapPlayerStatsToBattleStat(ffScouterStats);
@@ -119,22 +119,22 @@ public class PlayerProvider(
         };
     }
 
-    private BattleStat MapProfileDetailsToBattleStat(ProfileDetails spies)
+    private static BattleStat MapProfileDetailsToBattleStat(ProfileDetails spies)
     {
         return new BattleStat
         {
-            Estimate = Convert.ToUInt64(spies.Spy.Total),
+            Estimate = Convert.ToUInt64(spies.Spy?.Total),
             Details = new BattleStatDetails
             {
-                Strength = Convert.ToUInt64(spies.Spy.Strength),
-                Defense = Convert.ToUInt64(spies.Spy.Defense),
-                Speed = Convert.ToUInt64(spies.Spy.Speed),
-                Dexterity = Convert.ToUInt64(spies.Spy.Dexterity)
+                Strength = Convert.ToUInt64(spies.Spy?.Strength),
+                Defense = Convert.ToUInt64(spies.Spy?.Defense),
+                Speed = Convert.ToUInt64(spies.Spy?.Speed),
+                Dexterity = Convert.ToUInt64(spies.Spy?.Dexterity)
             }
         };
     }
 
-    private BattleStat MapPlayerStatsToBattleStat(FfPlayerStats ffFfPlayerStats)
+    private static BattleStat MapPlayerStatsToBattleStat(FfPlayerStats ffFfPlayerStats)
     {
         if (ffFfPlayerStats.Spies.Length > 0)
         {

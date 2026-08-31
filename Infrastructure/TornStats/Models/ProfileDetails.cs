@@ -20,13 +20,13 @@ public class AttacksWon
 
 public class ProfileDetails
 {
-    [JsonPropertyName("status")] public bool? Status { get; set; }
+    [JsonPropertyName("status")] public bool Status { get; set; }
 
     [JsonPropertyName("data")] public Data? Data { get; set; }
 
-    [JsonPropertyName("timestamp")] public string Timestamp { get; set; }
+    [JsonPropertyName("timestamp")] public string? Timestamp { get; set; }
 
-    [JsonPropertyName("spy")] public Spy Spy { get; set; }
+    [JsonPropertyName("spy")] public Spy? Spy { get; set; }
 
     [JsonPropertyName("attacks")] public Attacks Attacks { get; set; }
 }

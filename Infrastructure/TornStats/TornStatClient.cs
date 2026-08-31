@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 using TornBot.Bot.Infrastructure.TornStats.Models;
+
 namespace TornBot.Bot.Infrastructure.TornStats;
 
 public class TornStatClient(HttpClient client, ILogger<TornStatClient> logger)
@@ -22,6 +23,16 @@ public class TornStatClient(HttpClient client, ILogger<TornStatClient> logger)
 
             var profileDetails = await response.Content.ReadFromJsonAsync<ProfileDetails>();
 
+            if (profileDetails is null)
+                return null;
+
+            if (!profileDetails.Status)
+            {
+                logger.LogInformation("No data found for player {playerId}", playerId);
+                return null;
+            }
+
+            logger.LogInformation("Retrieved profile details for player {playerId}", playerId);
             return profileDetails;
         }
         catch (Exception ex)

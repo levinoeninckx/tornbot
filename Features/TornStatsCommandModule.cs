@@ -47,6 +47,7 @@ public class TornStatsCommandModule(
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("User not found in Torn");
         }
+
         publicKey.IncreaseUsage();
 
         var apiKey = new ApiKey(player.Id, key, AccessLevel.TornStats);
@@ -87,10 +88,10 @@ public class TornStatsCommandModule(
         }
 
         var battleStat = new BattleStat(
-            Convert.ToUInt64(stats.Spy.Strength),
-            Convert.ToUInt64(stats.Spy.Defense),
-            Convert.ToUInt64(stats.Spy.Speed),
-            Convert.ToUInt64(stats.Spy.Dexterity)
+            Convert.ToUInt64(stats.Spy?.Strength),
+            Convert.ToUInt64(stats.Spy?.Defense),
+            Convert.ToUInt64(stats.Spy?.Speed),
+            Convert.ToUInt64(stats.Spy?.Dexterity)
         );
 
         return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Player stats", battleStat.ToString());
