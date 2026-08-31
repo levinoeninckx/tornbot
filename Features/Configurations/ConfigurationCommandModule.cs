@@ -35,57 +35,97 @@ public class ConfigurationCommandModule(
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>();
         }
 
-        await using var context = await contextFactory.CreateDbContextAsync();
-        var isRegistered = await context.Factions.AnyAsync(f => f.GuildId == Context.Guild.Id);
-
-        if (isRegistered)
-        {
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Faction already registered");
-        }
-
-        var keyInfo = await client.GetKeyInfoAsync(apiKey);
-        if (keyInfo == null) return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Invalid API key");
-
-        var initialKey = new ApiKey(keyInfo.User.Id, apiKey, AccessLevel.Public);
-        initialKey.IncreaseUsage();
-        var faction = new Faction()
-        {
-            Name = string.Empty,
-            GuildId = Context.Guild.Id,
-            FactionId = keyInfo.User.FactionId,
-            ApiKeys = [initialKey],
-            ModuleConfigs =
-            [
-                new ModuleConfig
-                {
-                    Module = Module.Verification,
-                    Config = JsonDocument.Parse(JsonSerializer.Serialize(new VerificationConfig()))
-                }
-            ]
-        };
-
-        context.Factions.Add(faction);
-
         try
         {
+            await using var context = await contextFactory.CreateDbContextAsync();
+            var isRegistered = await context.Factions.AnyAsync(f => f.GuildId == Context.Guild.Id);
+
+            if (isRegistered)
+            {
+                return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Faction already registered");
+            }
+
+            var keyInfo = await client.GetKeyInfoAsync(apiKey);
+            if (keyInfo == null)
+                return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Invalid API key");
+
+            var initialKey = new ApiKey(keyInfo.User.Id, apiKey, (AccessLevel)keyInfo.Access.Level)
+            {
+                HasFactionAccess = keyInfo.Access.Faction,
+                HasCompanyAccess = keyInfo.Access.Company
+            };
+
+            await Context.Interaction
+                .SendFollowupMessageAsync(
+                    MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("API key registered",
+                        $"{initialKey.AccessLevel.ToString()} key registered"));
+
+            initialKey.IncreaseUsage();
+
+            var registeringUser = await client.GetUserProfileById(initialKey.TornPlayerId, apiKey);
+            if (registeringUser == null)
+            {
+                logger.LogWarning("Failed to get user profile for user with id {playerId}", initialKey.TornPlayerId);
+                return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                    "Failed to get your user profile from torn API");
+            }
+
+            initialKey.IncreaseUsage();
+
+            if (registeringUser.FactionId == null)
+                return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                    "You are not in a faction, can't register this bot");
+
+            var factionBasic = await client.GetFactionBasicAsync(registeringUser.FactionId!.Value, apiKey);
+            if (factionBasic == null)
+                return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
+                    "Failed to get faction information, try again later");
+
+            var faction = new Faction
+            {
+                Name = factionBasic.Name,
+                GuildId = Context.Guild.Id,
+                FactionId = factionBasic.Id,
+                ApiKeys = [initialKey],
+                ModuleConfigs =
+                [
+                    new ModuleConfig
+                    {
+                        Module = Module.Verification,
+                        Config = JsonDocument.Parse(JsonSerializer.Serialize(new VerificationConfig()))
+                    },
+                    new ModuleConfig
+                    {
+                        Module = Module.Banking,
+                        Config = JsonDocument.Parse(JsonSerializer.Serialize(new BankingModuleConfig()))
+                    },
+                    new ModuleConfig
+                    {
+                        Module = Module.OrganizedCrime,
+                        Config = JsonDocument.Parse(JsonSerializer.Serialize(new OrganizedCrimeModuleConfig()))
+                    },
+                    new ModuleConfig
+                    {
+                        Module = Module.Retal,
+                        Config = JsonDocument.Parse(JsonSerializer.Serialize(new RetalModuleConfig()))
+                    }
+                ]
+            };
+
+            context.Factions.Add(faction);
+
             await context.SaveChangesAsync();
+
+            logger.LogInformation("Faction {factionName} registered", factionBasic.Name);
+
+            return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success",
+                $"Faction {factionBasic.Name} registered");
         }
         catch (Exception ex)
         {
             logger.LogCritical(ex, "Failed to save faction");
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to save faction");
+            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to register faction");
         }
-
-        await SetOcTriggersAsync();
-
-        var factionBasic = await client.GetFactionBasicAsync(faction.FactionId, apiKey);
-        initialKey.IncreaseUsage();
-        await context.SaveChangesAsync();
-        if (factionBasic == null)
-            return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("Failed to get faction information");
-
-        return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success",
-            $"Faction {factionBasic.Name} registered");
     }
 
     [SubSlashCommand("verification", "configure the verification module")]
