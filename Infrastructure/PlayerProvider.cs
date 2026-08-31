@@ -29,6 +29,8 @@ public class PlayerProvider(
             return null;
         }
 
+        var playerFaction = await tornClient.GetUserFactionAsync(tornId, apiKey.Key);
+
         var battleStat = await GetPlayerBattlestatsByIdAsync(tornId, fFScouterApiKey, tornStatApiKey);
 
         var playerDetails = await tornStatClient.GetSpyProfileDetailsById(tornId, apiKey.Key);
@@ -41,7 +43,7 @@ public class PlayerProvider(
             return new Player
             {
                 Id = playerProfile.Id,
-                FactionId = playerProfile.FactionId,
+                FactionId = playerFaction?.Id,
                 Username = playerProfile.Name,
                 Gender = playerProfile.Gender,
                 Level = playerProfile.Level,
@@ -64,7 +66,7 @@ public class PlayerProvider(
         return new Player
         {
             Id = playerProfile.Id,
-            FactionId = playerProfile.FactionId,
+            FactionId = playerFaction?.Id,
             Username = playerProfile.Name,
             Gender = playerProfile.Gender,
             Level = playerProfile.Level,
@@ -105,12 +107,14 @@ public class PlayerProvider(
             return null;
         }
 
+        var playerFaction = await tornClient.GetUserFactionAsync(playerProfile.Id, publicKey.Key);
+
         var battleStat = await GetPlayerBattlestatsByIdAsync(playerProfile.Id, fFScouterApiKey, tornStatApiKey);
 
         return new Player
         {
             Id = playerProfile.Id,
-            FactionId = playerProfile.FactionId,
+            FactionId = playerFaction?.Id,
             Username = playerProfile.Name,
             Gender = playerProfile.Gender,
             Level = playerProfile.Level,

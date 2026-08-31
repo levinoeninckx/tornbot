@@ -67,20 +67,16 @@ public class ConfigurationCommandModule(
 
             initialKey.IncreaseUsage();
 
-            if (registeringUser.FactionId == null)
+            var userFaction = await client.GetUserFactionAsync(registeringUser.Id, apiKey);
+            if (userFaction == null)
                 return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
                     "You are not in a faction, can't register this bot");
 
-            var factionBasic = await client.GetFactionBasicAsync(registeringUser.FactionId!.Value, apiKey);
-            if (factionBasic == null)
-                return MessageFactory.CreateErrorMessage<InteractionMessageProperties>(
-                    "Failed to get faction information, try again later");
-
             var faction = new Faction
             {
-                Name = factionBasic.Name,
+                Name = userFaction.Name,
                 GuildId = Context.Guild.Id,
-                FactionId = factionBasic.Id,
+                FactionId = userFaction.Id,
                 ApiKeys = [initialKey],
                 ModuleConfigs =
                 [
@@ -111,10 +107,10 @@ public class ConfigurationCommandModule(
 
             await context.SaveChangesAsync();
 
-            logger.LogInformation("Faction {factionName} registered", factionBasic.Name);
+            logger.LogInformation("Faction {factionName} registered", userFaction.Name);
 
             return MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("Success",
-                $"Faction {factionBasic.Name} registered");
+                $"Faction {userFaction.Name} registered");
         }
         catch (Exception ex)
         {
