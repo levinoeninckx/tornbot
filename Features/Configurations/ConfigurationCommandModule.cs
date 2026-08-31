@@ -56,11 +56,6 @@ public class ConfigurationCommandModule(
                 HasCompanyAccess = keyInfo.Access.Company
             };
 
-            await Context.Interaction
-                .SendFollowupMessageAsync(
-                    MessageFactory.CreateDefaultMessage<InteractionMessageProperties>("API key registered",
-                        $"{initialKey.AccessLevel.ToString()} key registered"));
-
             initialKey.IncreaseUsage();
 
             var registeringUser = await client.GetUserProfileById(initialKey.TornPlayerId, apiKey);
