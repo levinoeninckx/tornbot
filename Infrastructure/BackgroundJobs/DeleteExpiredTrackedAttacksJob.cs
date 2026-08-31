@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -16,51 +17,65 @@ public class DeleteExpiredTrackedAttacksJob(
 {
     public async Task Execute(IJobExecutionContext context)
     {
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync();
-
-        var factions = await dbContext.Factions
-            .AsSplitQuery()
-            .Include(f => f.TrackedAttacks)
-            .Include(f => f.ModuleConfigs)
-            .ToListAsync();
-
-        foreach (var faction in factions)
+        try
         {
-            var expiredAttacks = faction.TrackedAttacks
-                .Where(a => a.Timestamp <= DateTime.UtcNow.AddMinutes(-5))
-                .Where(a => a.State == RetalOpportunityState.Open)
-                .ToList();
+            await using var dbContext = await dbContextFactory.CreateDbContextAsync();
 
-            var claimedAttacks = faction.TrackedAttacks
-                .Where(a => a.State == RetalOpportunityState.Claimed);
+            var factions = await dbContext.Factions
+                .AsSplitQuery()
+                .Include(f => f.TrackedAttacks)
+                .Include(f => f.ModuleConfigs)
+                .ToListAsync();
 
-            dbContext.TrackedAttacks.RemoveRange(expiredAttacks);
-            dbContext.TrackedAttacks.RemoveRange(claimedAttacks);
-
-            var config = faction.ModuleConfigs
-                .Single(m => m.Module == Module.Retal);
-
-            var retalConfig = config.Config.Deserialize<RetalModuleConfig>();
-
-            if (retalConfig is null)
+            foreach (var faction in factions)
             {
-                logger.LogError("Could not deserialize retal module config for faction {factionId}",
+                var expiredAttacks = faction.TrackedAttacks
+                    .Where(a => a.Timestamp <= DateTime.UtcNow.AddMinutes(-5))
+                    .Where(a => a.State == RetalOpportunityState.Open)
+                    .ToList();
+
+                var claimedAttacks = faction.TrackedAttacks
+                    .Where(a => a.State == RetalOpportunityState.Claimed)
+                    .ToImmutableList();
+
+                dbContext.TrackedAttacks.RemoveRange(expiredAttacks);
+                dbContext.TrackedAttacks.RemoveRange(claimedAttacks);
+
+                var config = faction.ModuleConfigs
+                    .Single(m => m.Module == Module.Retal);
+
+                var retalConfig = config.Config.Deserialize<RetalModuleConfig>();
+
+                if (retalConfig is null)
+                {
+                    logger.LogError("Could not deserialize retal module config for faction {factionId}",
+                        faction.FactionId);
+                    continue;
+                }
+
+                if (retalConfig.State != ModuleState.Enabled)
+                    continue;
+
+                foreach (var a in expiredAttacks)
+                {
+                    await UpdateMessageAsync(retalConfig.NotificationChannelId!.Value, a);
+                }
+
+                logger.LogInformation("Removed {count} expired attacks for faction {factionId}", expiredAttacks.Count,
                     faction.FactionId);
-                continue;
+                logger.LogInformation("Removed {count} claimed attacks for faction {factionId}", claimedAttacks.Count,
+                    faction.FactionId);
             }
 
-            if (retalConfig.State != ModuleState.Enabled)
-                continue;
-
-            foreach (var a in expiredAttacks)
-            {
-                await UpdateMessageAsync(retalConfig.NotificationChannelId!.Value, a);
-            }
+            await dbContext.SaveChangesAsync();
         }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Error in {jobName}", nameof(DeleteExpiredTrackedAttacksJob));
 
-        var rowsAffected = await dbContext.SaveChangesAsync();
-
-        logger.LogInformation("Removed {count} tracked attacks from the database", rowsAffected);
+            if (context.RefireCount < 3)
+                throw new JobExecutionException { RefireImmediately = true };
+        }
     }
 
     private async Task UpdateMessageAsync(ulong channelId, RetalOpportunity opportunity)

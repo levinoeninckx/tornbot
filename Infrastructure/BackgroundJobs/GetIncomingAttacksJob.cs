@@ -38,7 +38,8 @@ public class GetIncomingAttacksJob(
                 var limitedKey = faction.GetKey(AccessLevel.LimitedAccess, requireFactionAccess: true);
                 if (limitedKey is null)
                 {
-                    logger.LogInformation("Faction with id {factionId} does not have a limited key with faction api access", faction.Id);
+                    logger.LogInformation(
+                        "Faction with id {factionId} does not have a limited key with faction api access", faction.Id);
                     continue;
                 }
 
@@ -89,13 +90,17 @@ public class GetIncomingAttacksJob(
 
                 foreach (var newRetal in newRetals)
                 {
-                    var attacker = await playerProvider.GetPlayerByTornIdAsync(newRetal.AttackerId!.Value, publicKey, ffscouterApiKey, tornStatsApiKey);
-                    var defender = await playerProvider.GetPlayerByTornIdAsync(newRetal.DefenderId, publicKey, ffscouterApiKey, tornStatsApiKey);
+                    var attacker = await playerProvider.GetPlayerByTornIdAsync(newRetal.AttackerId!.Value, publicKey,
+                        ffscouterApiKey, tornStatsApiKey);
+                    var defender = await playerProvider.GetPlayerByTornIdAsync(newRetal.DefenderId, publicKey,
+                        ffscouterApiKey, tornStatsApiKey);
 
                     if (attacker is null || defender is null)
                     {
                         logger
-                            .LogError("Could not find attacker {attackerId} or defender {defenderId} for retal {retalId}", newRetal.AttackerId, newRetal.DefenderId, newRetal.Id);
+                            .LogError(
+                                "Could not find attacker {attackerId} or defender {defenderId} for retal {retalId}",
+                                newRetal.AttackerId, newRetal.DefenderId, newRetal.Id);
                         continue;
                     }
 
@@ -132,6 +137,9 @@ public class GetIncomingAttacksJob(
         catch (Exception e)
         {
             logger.LogError(e, "Error in {jobName}", nameof(GetIncomingAttacksJob));
+
+            if (context.RefireCount < 3)
+                throw new JobExecutionException { RefireImmediately = true };
         }
     }
 
