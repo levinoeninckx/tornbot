@@ -46,7 +46,7 @@ public class PlayerProvider(
                 Gender = playerProfile.Gender,
                 Level = playerProfile.Level,
                 State = Enum.Parse<PlayerState>(playerProfile.Status.State),
-                BattleStat = battleStat
+                BattleStat = battleStat,
             };
         }
 

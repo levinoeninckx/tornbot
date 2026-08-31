@@ -3,7 +3,9 @@ using System.Collections.Immutable;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Infrastructure.TornApi.Models;
+
 namespace TornBot.Bot.Infrastructure.TornApi;
 
 public class TornApiClient(HttpClient httpClient, ILogger<TornApiClient> logger)
@@ -184,11 +186,28 @@ public class TornApiClient(HttpClient httpClient, ILogger<TornApiClient> logger)
         return keyInfoResponse?.Info;
     }
 
-    public async Task<Factionbasic?> GetFactionBasicAsync(int factionId, string apiKey, CancellationToken ct = default)
+    public async Task<FactionBasic?> GetFactionBasicAsync(int factionId, string apiKey, CancellationToken ct = default)
     {
-        var response = await GetAsync<FactionBasicResponse>($"faction/{factionId}/basic", apiKey, ct);
+        try
+        {
+            var response = await GetAsync<FactionBasicResponse>($"faction/{factionId}/basic", apiKey, ct);
 
-        return response.Basic;
+            var factionBasic = new FactionBasic
+            {
+                Id = response.Basic.Id,
+                Name = response.Basic.Name,
+                MemberCount = response.Basic.Members,
+                Rank = $"{response.Basic.Rank.Name} {response.Basic.Rank.Position}",
+                Respect = Convert.ToUInt32(response.Basic.Respect)
+            };
+
+            return factionBasic;
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Failed to get faction basic");
+            return null;
+        }
     }
 
     public async Task<FactionMemberBalance?> GetMemberFactionBalanceByIdAsync(int factionId, ulong userId,

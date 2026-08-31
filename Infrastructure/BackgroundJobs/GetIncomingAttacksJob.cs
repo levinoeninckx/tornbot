@@ -8,6 +8,7 @@ using NetCord.Rest;
 using Quartz;
 using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
+using TornBot.Bot.Infrastructure.TornApi;
 using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Infrastructure.BackgroundJobs;
@@ -16,6 +17,7 @@ public class GetIncomingAttacksJob(
     IDbContextFactory<TornbotContext> dbContextFactory,
     IAttackService attackService,
     IPlayerProvider playerProvider,
+    TornApiClient tornApiClient,
     NotificationService notificationService,
     ILogger<GetIncomingAttacksJob> logger) : IJob
 {
@@ -107,7 +109,9 @@ public class GetIncomingAttacksJob(
                     newRetal.Attacker = attacker;
                     newRetal.Defender = defender;
 
-                    var retalMessage = CreateRetalMessageAsync(newRetal);
+                    var factionBasic =
+                        await tornApiClient.GetFactionBasicAsync(attacker.FactionId!.Value, publicKey.Key);
+                    var retalMessage = CreateRetalMessageAsync(newRetal, factionBasic);
                     var notificationCommand = new NotificationCommand
                     {
                         ChannelId = notificationParameters.ChannelId,
@@ -143,7 +147,7 @@ public class GetIncomingAttacksJob(
         }
     }
 
-    private static MessageProperties CreateRetalMessageAsync(Attack attack)
+    private static MessageProperties CreateRetalMessageAsync(Attack attack, FactionBasic? attackerFaction)
     {
         var stringBuilder = new StringBuilder();
 
@@ -154,12 +158,6 @@ public class GetIncomingAttacksJob(
         stringBuilder.AppendLine("### Player");
         stringBuilder.AppendLine($"[{attack.Attacker.Username}]({ShortUrlHelper.GetProfileUrl(attack.Attacker.Id)})");
         stringBuilder.AppendLine($"Level {attack.Attacker.Level}");
-
-        if (attack.Attacker.Faction != null && attack.Attacker.FactionId.HasValue)
-        {
-            stringBuilder.AppendLine(
-                $"[{attack.Attacker.Faction.Name}]({ShortUrlHelper.GetFactionUrl(attack.Attacker.FactionId.Value)})");
-        }
 
         stringBuilder.AppendLine("### Battle stats");
         var battleStat = attack.Attacker.BattleStat;
@@ -178,6 +176,20 @@ public class GetIncomingAttacksJob(
         else
         {
             stringBuilder.AppendLine("** No battle stats found **");
+        }
+
+        if (attack.Attacker.Faction != null && attack.Attacker.FactionId.HasValue)
+        {
+            stringBuilder.AppendLine("## Faction info");
+            stringBuilder.AppendLine(
+                $"[{attack.Attacker.Faction.Name}]({ShortUrlHelper.GetFactionUrl(attack.Attacker.FactionId.Value)})");
+            stringBuilder.AppendLine($"Respect: {attackerFaction.Respect}");
+            stringBuilder.AppendLine($"Rank: {attackerFaction.Rank}");
+            stringBuilder.AppendLine($"Member count: {attackerFaction.MemberCount}");
+        }
+        else
+        {
+            stringBuilder.AppendLine("** Player not in a faction **");
         }
 
         return new MessageProperties
