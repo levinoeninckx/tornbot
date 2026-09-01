@@ -10,7 +10,7 @@ using TornBot.Bot.Shared;
 namespace TornBot.Bot.Features.Verification;
 
 public class VerifyCommandModule(
-    TornApiClient client,
+    TornClient client,
     VerificationService verificationService,
     IDbContextFactory<TornbotContext> contextFactory) : ApplicationCommandModule<ApplicationCommandContext>
 {
@@ -43,6 +43,7 @@ public class VerifyCommandModule(
         {
             return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("User not found in Torn");
         }
+
         apiKey.IncreaseUsage();
         await context.SaveChangesAsync();
 

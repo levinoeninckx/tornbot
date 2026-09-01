@@ -25,7 +25,8 @@ using TornBot.Bot.Shared;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-Log.Logger.Information("Environment: {Environment}", builder.Environment.EnvironmentName);
+Log.Logger
+    .Information("Environment: {Environment}", builder.Environment.EnvironmentName);
 
 builder.Services.AddSerilog(configure =>
 {
@@ -40,7 +41,11 @@ builder.Services.AddSerilog(configure =>
 
     var seqApiKey = builder.Configuration["seq:apiKey"];
     var seqUrl = builder.Configuration["seq:url"];
-    if (seqApiKey == null || seqUrl == null) return;
+    if (seqApiKey == null || seqUrl == null)
+    {
+        Log.Logger.Warning("Seq API key or URL is not set, skipping Seq setup");
+        return;
+    }
 
     var levelSwitch = new LoggingLevelSwitch();
     configure.MinimumLevel.ControlledBy(levelSwitch);
@@ -103,7 +108,7 @@ builder.Services
     .AddComponentInteractions<StringMenuInteraction, StringMenuInteractionContext>();
 
 // Httpclient
-builder.Services.AddHttpClient<TornApiClient>(client => client.BaseAddress = new Uri("https://api.torn.com/v2/"));
+builder.Services.AddHttpClient<TornClient>(client => client.BaseAddress = new Uri("https://api.torn.com/v2/"));
 builder.Services.AddHttpClient<IAttackService, AttackService>(client =>
     client.BaseAddress = new Uri("https://api.torn.com/v2/faction/attacksfull/"));
 builder.Services.AddHttpClient<FfScouterClient>(client =>

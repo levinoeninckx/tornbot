@@ -17,7 +17,7 @@ public class GetIncomingAttacksJob(
     IDbContextFactory<TornbotContext> dbContextFactory,
     IAttackService attackService,
     IPlayerProvider playerProvider,
-    TornApiClient tornApiClient,
+    TornClient tornClient,
     NotificationService notificationService,
     ILogger<GetIncomingAttacksJob> logger) : IJob
 {
@@ -110,12 +110,12 @@ public class GetIncomingAttacksJob(
                     newRetal.Defender = defender;
 
                     var userFaction =
-                        await tornApiClient.GetUserFactionAsync(attacker.Id, publicKey.Key);
+                        await tornClient.GetUserFactionAsync(attacker.Id, publicKey.Key);
                     publicKey.IncreaseUsage();
 
                     var factionBasic = userFaction is null
                         ? null
-                        : await tornApiClient.GetFactionBasicAsync(userFaction.Id, publicKey.Key);
+                        : await tornClient.GetFactionBasicAsync(userFaction.Id, publicKey.Key);
                     if (factionBasic is not null)
                         publicKey.IncreaseUsage();
 
@@ -186,11 +186,11 @@ public class GetIncomingAttacksJob(
             stringBuilder.AppendLine("** No battle stats found **");
         }
 
-        if (attack.Attacker.Faction != null && attack.Attacker.FactionId.HasValue)
+        if (attackerFaction is not null)
         {
             stringBuilder.AppendLine("## Faction info");
             stringBuilder.AppendLine(
-                $"[{attack.Attacker.Faction.Name}]({ShortUrlHelper.GetFactionUrl(attack.Attacker.FactionId.Value)})");
+                $"[{attackerFaction}]({ShortUrlHelper.GetFactionUrl(attackerFaction.Id)})");
             stringBuilder.AppendLine($"Respect: {attackerFaction.Respect}");
             stringBuilder.AppendLine($"Rank: {attackerFaction.Rank}");
             stringBuilder.AppendLine($"Member count: {attackerFaction.MemberCount}");

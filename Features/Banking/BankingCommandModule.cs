@@ -19,7 +19,7 @@ namespace TornBot.Bot.Features.Banking;
 [SlashCommand("banking", "Commands to interact with the banking system", Contexts = [InteractionContextType.Guild])]
 public class BankingCommandModule(
     IDbContextFactory<TornbotContext> contextFactory,
-    TornApiClient client,
+    TornClient client,
     ILogger<BankingCommandModule> logger,
     ModuleConfigRepository moduleConfigRepository) : ApplicationCommandModule<ApplicationCommandContext>
 {

@@ -14,7 +14,7 @@ using TornBot.Bot.Shared;
 namespace TornBot.Bot.Infrastructure.BackgroundJobs;
 
 public class UpdateOrganizedCrimes(
-    TornApiClient client,
+    TornClient client,
     IDbContextFactory<TornbotContext> contextFactory,
     ModuleConfigRepository repository,
     NotificationService notificationService,
@@ -45,7 +45,7 @@ public class UpdateOrganizedCrimes(
             return;
         }
 
-        var availableCrimes = await client.GetAvailableCrimesAsync(minimalKey.Key, ct);
+        var availableCrimes = await client.GetAvailableCrimesAsync(minimalKey, ct);
         minimalKey.IncreaseUsage();
         if (availableCrimes is null)
         {
@@ -55,7 +55,7 @@ public class UpdateOrganizedCrimes(
 
         await ProcessAvailableCrimes(faction, availableCrimes, config!);
 
-        var completedCrimes = await client.GetCompletedCrimesAsync(minimalKey.Key, ct);
+        var completedCrimes = await client.GetCompletedCrimesAsync(minimalKey, ct);
         minimalKey.IncreaseUsage();
         if (completedCrimes is null)
         {
@@ -169,7 +169,7 @@ public class UpdateOrganizedCrimes(
 
         var members = publicKey is null
             ? []
-            : await client.GetFactionMembersByFactionIdAsync(faction.FactionId, publicKey.Key);
+            : await client.GetFactionMembersByFactionIdAsync(faction.FactionId, publicKey);
         publicKey?.IncreaseUsage();
         var participatedMemberLookup = crime.Slots.Select(s => s.User!.Id).ToImmutableHashSet();
 

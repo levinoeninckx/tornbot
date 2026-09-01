@@ -3,32 +3,39 @@ using System.Collections.Immutable;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using TornBot.Bot.Domain.Enums;
 using TornBot.Bot.Domain.Models;
 using TornBot.Bot.Infrastructure.TornApi.Models;
 
 namespace TornBot.Bot.Infrastructure.TornApi;
 
-public class TornApiClient(HttpClient httpClient, ILogger<TornApiClient> logger)
+public class TornClient(HttpClient httpClient, ILogger<TornClient> logger)
 {
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    public Task<ImmutableList<FactionCrime>?> GetAvailableCrimesAsync(string apiKey,
+    public Task<ImmutableList<FactionCrime>?> GetAvailableCrimesAsync(ApiKey limitedKey,
         CancellationToken ct = default)
-        => GetCrimesByCategoryAsync(apiKey, "available", ct);
+        => GetCrimesByCategoryAsync(limitedKey, "available", ct);
 
-    public Task<ImmutableList<FactionCrime>?> GetCompletedCrimesAsync(string apiKey,
+    public Task<ImmutableList<FactionCrime>?> GetCompletedCrimesAsync(ApiKey limitedKey,
         CancellationToken ct = default)
-        => GetCrimesByCategoryAsync(apiKey, "completed", ct);
+        => GetCrimesByCategoryAsync(limitedKey, "completed", ct);
 
-    private async Task<ImmutableList<FactionCrime>?> GetCrimesByCategoryAsync(string apiKey, string category,
+    private async Task<ImmutableList<FactionCrime>?> GetCrimesByCategoryAsync(ApiKey limitedKey, string category,
         CancellationToken ct)
     {
         try
         {
-            var response = await GetAsync<FactionCrimesResponse>("faction/crimes", apiKey, ct,
+            if (limitedKey.AccessLevel != AccessLevel.LimitedAccess)
+            {
+                logger.LogWarning("Provided key {key} does not have limited access", limitedKey.Key);
+                return null;
+            }
+
+            var response = await GetAsync<FactionCrimesResponse>("faction/crimes", limitedKey.Key, ct,
                 $"cat={category}&limit=50&sort=DESC");
             if (response.Crimes == null)
             {
@@ -36,6 +43,7 @@ public class TornApiClient(HttpClient httpClient, ILogger<TornApiClient> logger)
                 return null;
             }
 
+            limitedKey.IncreaseUsage();
             return response.Crimes.ToImmutableList();
         }
         catch (Exception ex)
@@ -45,16 +53,32 @@ public class TornApiClient(HttpClient httpClient, ILogger<TornApiClient> logger)
         }
     }
 
-    public async Task<IReadOnlyList<FactionMember>> GetFactionMembersByFactionIdAsync(int factionId, string apiKey,
+    public async Task<IReadOnlyList<FactionMember>?> GetFactionMembersByFactionIdAsync(int factionId, ApiKey publicKey,
         CancellationToken ct = default)
     {
-        var response = await GetAsync<FactionMembersResponse>($"faction/{factionId}/members", apiKey, ct);
-        if (response.Members == null)
+        var response = await GetAsync<FactionMembersResponse>($"faction/{factionId}/members", publicKey.Key, ct);
+        if (response is null)
         {
-            throw new InvalidOperationException();
+            logger.LogWarning("Response was empty, something went wrong accessing the torn api");
+            return null;
         }
 
-        return response.Members;
+        publicKey.IncreaseUsage();
+
+        return response.Members
+            .Select(m => new FactionMember
+            {
+                Id = m.Id,
+                Name = m.Name,
+                Level = m.Level,
+                DaysInFaction = m.DaysInFaction,
+                ActivityStatus = Enum.Parse<ActivityStatus>(m.LastAction.Status.ToString()),
+                CanEarlyDischarge = m.HasEarlyDischarge,
+                CurrentState = Enum.Parse<PlayerState>(m.Status.State.ToString()),
+                InOc = m.IsInOc,
+                IsRevivable = m.IsRevivable
+            })
+            .ToImmutableList();
     }
 
     public async Task<FactionCrime[]> GetAllFactionCrimesAsync(string apiKey)
@@ -110,7 +134,7 @@ public class TornApiClient(HttpClient httpClient, ILogger<TornApiClient> logger)
         return allCrimes.ToArray();
     }
 
-    private async Task<T> GetAsync<T>(string endpoint, string key, CancellationToken ct = default,
+    private async Task<T?> GetAsync<T>(string endpoint, string key, CancellationToken ct = default,
         string queryParameters = "")
     {
         var url = $"{endpoint}?key={key}";

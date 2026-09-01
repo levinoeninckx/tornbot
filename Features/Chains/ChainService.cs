@@ -13,15 +13,15 @@ public class ChainService : BackgroundService
 {
     private readonly RestClient _restClient;
     private readonly ChannelService _channelService;
-    private readonly TornApiClient _apiClient;
+    private readonly TornClient _client;
     private readonly IDbContextFactory<TornbotContext> _contextFactory;
 
-    public ChainService(RestClient restClient, ChannelService channelService, TornApiClient apiClient,
+    public ChainService(RestClient restClient, ChannelService channelService, TornClient client,
         IDbContextFactory<TornbotContext> contextFactory)
     {
         _restClient = restClient;
         _channelService = channelService;
-        _apiClient = apiClient;
+        _client = client;
         _contextFactory = contextFactory;
     }
 
@@ -43,7 +43,7 @@ public class ChainService : BackgroundService
             var apiKey = faction?.GetKey(AccessLevel.Public);
             if (apiKey is null) continue;
 
-            var chain = await _apiClient.GetChainStateAsync(apiKey.Key, stoppingToken);
+            var chain = await _client.GetChainStateAsync(apiKey.Key, stoppingToken);
             apiKey.IncreaseUsage();
             await context.SaveChangesAsync(stoppingToken);
 

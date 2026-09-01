@@ -15,7 +15,7 @@ namespace TornBot.Bot.Features;
 [SlashCommand("key", "key commands")]
 public class ApiKeyCommandModule(
     TornbotContext context,
-    TornApiClient client,
+    TornClient client,
     ILogger<ApiKeyCommandModule> logger) : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("add", "add an api key")]

@@ -14,7 +14,7 @@ namespace TornBot.Bot.Infrastructure;
 public class PlayerProvider(
     TornStatClient tornStatClient,
     FfScouterClient ffScouterClient,
-    TornApiClient tornClient,
+    TornClient tornClient,
     ILogger<PlayerProvider> logger) : IPlayerProvider
 {
     public async Task<Player?> GetPlayerByTornIdAsync(int tornId, ApiKey apiKey, FFScouterApiKey fFScouterApiKey,
@@ -47,7 +47,7 @@ public class PlayerProvider(
                 Username = playerProfile.Name,
                 Gender = playerProfile.Gender,
                 Level = playerProfile.Level,
-                State = Enum.Parse<PlayerState>(playerProfile.Status.State),
+                State = Enum.Parse<PlayerState>(playerProfile.Status.State.ToString()),
                 BattleStat = battleStat,
             };
         }
@@ -70,7 +70,7 @@ public class PlayerProvider(
             Username = playerProfile.Name,
             Gender = playerProfile.Gender,
             Level = playerProfile.Level,
-            State = Enum.Parse<PlayerState>(playerProfile.Status.State),
+            State = Enum.Parse<PlayerState>(playerProfile.Status.State.ToString()),
             BattleStat = battleStat,
             PlayerStats = playerStats
         };
@@ -118,7 +118,7 @@ public class PlayerProvider(
             Username = playerProfile.Name,
             Gender = playerProfile.Gender,
             Level = playerProfile.Level,
-            State = Enum.Parse<PlayerState>(playerProfile.Status.State),
+            State = Enum.Parse<PlayerState>(playerProfile.Status.State.ToString()),
             BattleStat = battleStat
         };
     }

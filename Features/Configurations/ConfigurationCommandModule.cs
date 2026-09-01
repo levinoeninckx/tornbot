@@ -17,7 +17,7 @@ namespace TornBot.Bot.Features.Configurations;
     Contexts = [InteractionContextType.Guild])]
 public class ConfigurationCommandModule(
     ModuleConfigRepository moduleConfigRepository,
-    TornApiClient client,
+    TornClient client,
     IDbContextFactory<TornbotContext> contextFactory,
     ISchedulerFactory schedulerFactory,
     ILogger<ConfigurationCommandModule> logger

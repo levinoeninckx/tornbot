@@ -13,7 +13,7 @@ namespace TornBot.Bot.Features.Verification;
 
 public class VerificationService(
     IDbContextFactory<TornbotContext> contextFactory,
-    TornApiClient client,
+    TornClient client,
     RestClient restClient,
     ILogger<VerificationService> logger)
 {

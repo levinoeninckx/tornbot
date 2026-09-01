@@ -11,7 +11,7 @@ namespace TornBot.Bot.Infrastructure.BackgroundJobs;
 
 public class ApiKeyCleanupJob(
     IDbContextFactory<TornbotContext> dbContextFactory,
-    TornApiClient tornApiClient,
+    TornClient tornClient,
     FfScouterClient ffScouterClient,
     TornStatClient tornStatClient,
     ILogger<ApiKeyCleanupJob> logger) : IJob
@@ -24,7 +24,6 @@ public class ApiKeyCleanupJob(
 
         try
         {
-
             var apiKeys = await dbContext.ApiKeys.ToListAsync(ct);
 
             foreach (var apiKey in apiKeys)
@@ -61,7 +60,7 @@ public class ApiKeyCleanupJob(
                 AccessLevel.FfScouter => await ffScouterClient.IsApiKeyValid(apiKey.Key),
                 AccessLevel.TornStats => await tornStatClient.IsKeyValidAsync(apiKey.Key),
                 AccessLevel.Public or AccessLevel.Minimal or AccessLevel.LimitedAccess or AccessLevel.Full =>
-                    await tornApiClient.GetKeyInfoAsync(apiKey.Key, ct) is not null,
+                    await tornClient.GetKeyInfoAsync(apiKey.Key, ct) is not null,
                 _ => false
             };
         }

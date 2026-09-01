@@ -14,7 +14,7 @@ namespace TornBot.Bot.Features;
 
 [SlashCommand("ff", "ffScouter commands", DefaultGuildPermissions = Permissions.Administrator)]
 public class FfScouterCommandModule(
-    TornApiClient client,
+    TornClient client,
     FfScouterClient ffClient,
     IDbContextFactory<TornbotContext> contextFactory,
     ILogger<FfScouterCommandModule> logger) : ApplicationCommandModule<ApplicationCommandContext>
@@ -53,6 +53,7 @@ public class FfScouterCommandModule(
             {
                 return MessageFactory.CreateErrorMessage<InteractionMessageProperties>("User not found in Torn");
             }
+
             publicKey.IncreaseUsage();
 
             if (faction.ApiKeys.Any(k => k.Key == key))

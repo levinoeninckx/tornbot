@@ -14,7 +14,7 @@ namespace TornBot.Bot.Features;
 
 [SlashCommand("ts", "torn stats commands", DefaultGuildPermissions = Permissions.Administrator)]
 public class TornStatsCommandModule(
-    TornApiClient client,
+    TornClient client,
     TornStatClient tsClient,
     IDbContextFactory<TornbotContext> dbContextFactory) : ApplicationCommandModule<ApplicationCommandContext>
 {

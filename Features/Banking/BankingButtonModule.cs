@@ -11,7 +11,7 @@ using TornBot.Bot.Shared;
 
 namespace TornBot.Bot.Features.Banking;
 
-public class BankingButtonModule(TornApiClient client, IDbContextFactory<TornbotContext> contextFactory)
+public class BankingButtonModule(TornClient client, IDbContextFactory<TornbotContext> contextFactory)
     : ComponentInteractionModule<ButtonInteractionContext>
 {
     [RequireBankerRole]
@@ -40,6 +40,7 @@ public class BankingButtonModule(TornApiClient client, IDbContextFactory<Tornbot
             await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
             return;
         }
+
         apiKey.IncreaseUsage();
 
         var stringBuilder = new StringBuilder();
@@ -69,6 +70,7 @@ public class BankingButtonModule(TornApiClient client, IDbContextFactory<Tornbot
             await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
             return;
         }
+
         apiKey.IncreaseUsage();
         await context.SaveChangesAsync();
 
@@ -139,6 +141,7 @@ public class BankingButtonModule(TornApiClient client, IDbContextFactory<Tornbot
             await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
             return;
         }
+
         apiKey.IncreaseUsage(2);
         await context.SaveChangesAsync();
 
@@ -189,6 +192,7 @@ public class BankingButtonModule(TornApiClient client, IDbContextFactory<Tornbot
             await Context.Channel.SendMessageAsync(MessageFactory.CreateErrorMessage<MessageProperties>());
             return;
         }
+
         apiKey.IncreaseUsage(2);
         await context.SaveChangesAsync();
 

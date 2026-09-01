@@ -18,7 +18,7 @@ namespace TornBot.Bot.Features.OrganizedCrime;
 [RequireOrganizedCrimesAllowedRoles]
 [RequireOrganizedCrimeRestrictedChannels]
 [SlashCommand("oc", "organized crime related commands")]
-public class OrganizedCrimeCommandModule(TornApiClient client, IDbContextFactory<TornbotContext> contextFactory)
+public class OrganizedCrimeCommandModule(TornClient client, IDbContextFactory<TornbotContext> contextFactory)
     : ApplicationCommandModule<ApplicationCommandContext>
 {
     [SubSlashCommand("profits", "see how much your faction has earned with organized crime")]
@@ -49,7 +49,7 @@ public class OrganizedCrimeCommandModule(TornApiClient client, IDbContextFactory
             return;
         }
 
-        var crimes = await client.GetCompletedCrimesAsync(minimalKey.Key);
+        var crimes = await client.GetCompletedCrimesAsync(minimalKey);
         minimalKey.IncreaseUsage();
         if (crimes == null)
         {
