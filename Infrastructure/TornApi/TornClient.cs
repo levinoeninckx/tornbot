@@ -24,18 +24,18 @@ public class TornClient(HttpClient httpClient, ILogger<TornClient> logger)
         CancellationToken ct = default)
         => GetCrimesByCategoryAsync(limitedKey, "completed", ct);
 
-    private async Task<ImmutableList<FactionCrime>?> GetCrimesByCategoryAsync(ApiKey limitedKey, string category,
+    private async Task<ImmutableList<FactionCrime>?> GetCrimesByCategoryAsync(ApiKey minimal, string category,
         CancellationToken ct)
     {
         try
         {
-            if (limitedKey.AccessLevel != AccessLevel.LimitedAccess)
+            if (minimal.AccessLevel != AccessLevel.Minimal)
             {
-                logger.LogWarning("Provided key {key} does not have limited access", limitedKey.Key);
+                logger.LogWarning("Provided key {key} does not have limited access", minimal.Key);
                 return null;
             }
 
-            var response = await GetAsync<FactionCrimesResponse>("faction/crimes", limitedKey.Key, ct,
+            var response = await GetAsync<FactionCrimesResponse>("faction/crimes", minimal.Key, ct,
                 $"cat={category}&limit=50&sort=DESC");
             if (response.Crimes == null)
             {
@@ -43,7 +43,7 @@ public class TornClient(HttpClient httpClient, ILogger<TornClient> logger)
                 return null;
             }
 
-            limitedKey.IncreaseUsage();
+            minimal.IncreaseUsage();
             return response.Crimes.ToImmutableList();
         }
         catch (Exception ex)
