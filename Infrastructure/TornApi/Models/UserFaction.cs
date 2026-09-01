@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace TornBot.Bot.Infrastructure.TornApi.Models;
 
-public class TornFaction
+public class UserFaction
 {
     public int Id { get; set; }
     public required string Name { get; set; }

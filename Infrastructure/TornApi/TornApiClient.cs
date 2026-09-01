@@ -161,11 +161,9 @@ public class TornApiClient(HttpClient httpClient, ILogger<TornApiClient> logger)
         return userBasicResponse.Profile;
     }
 
-    public async Task<TornFaction?> GetUserFactionAsync(int userId, string apiKey, CancellationToken ct = default)
+    public async Task<UserFaction?> GetUserFactionAsync(int userId, string apiKey, CancellationToken ct = default)
     {
         var userFacionResponse = await GetAsync<UserFactionResponse>($"user/{userId}/faction", apiKey, ct);
-
-        if (userFacionResponse.Faction == null) return null;
 
         return userFacionResponse.Faction;
     }
@@ -205,7 +203,7 @@ public class TornApiClient(HttpClient httpClient, ILogger<TornApiClient> logger)
         }
         catch (Exception e)
         {
-            logger.LogError(e, "Failed to get faction basic");
+            logger.LogError(e, "Failed to get faction with id {playerId}", factionId);
             return null;
         }
     }

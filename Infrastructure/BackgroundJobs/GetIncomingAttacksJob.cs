@@ -109,8 +109,16 @@ public class GetIncomingAttacksJob(
                     newRetal.Attacker = attacker;
                     newRetal.Defender = defender;
 
-                    var factionBasic =
-                        await tornApiClient.GetFactionBasicAsync(attacker.FactionId!.Value, publicKey.Key);
+                    var userFaction =
+                        await tornApiClient.GetUserFactionAsync(attacker.Id, publicKey.Key);
+                    publicKey.IncreaseUsage();
+
+                    var factionBasic = userFaction is null
+                        ? null
+                        : await tornApiClient.GetFactionBasicAsync(userFaction.Id, publicKey.Key);
+                    if (factionBasic is not null)
+                        publicKey.IncreaseUsage();
+
                     var retalMessage = CreateRetalMessageAsync(newRetal, factionBasic);
                     var notificationCommand = new NotificationCommand
                     {
