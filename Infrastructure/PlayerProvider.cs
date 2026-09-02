@@ -47,7 +47,7 @@ public class PlayerProvider(
                 Username = playerProfile.Name,
                 Gender = playerProfile.Gender,
                 Level = playerProfile.Level,
-                State = Enum.Parse<PlayerState>(playerProfile.Status.State.ToString()),
+                State = Enum.Parse<PlayerState>(playerProfile.Status.State),
                 BattleStat = battleStat,
             };
         }
@@ -70,7 +70,7 @@ public class PlayerProvider(
             Username = playerProfile.Name,
             Gender = playerProfile.Gender,
             Level = playerProfile.Level,
-            State = Enum.Parse<PlayerState>(playerProfile.Status.State.ToString()),
+            State = Enum.Parse<PlayerState>(playerProfile.Status.State),
             BattleStat = battleStat,
             PlayerStats = playerStats
         };
@@ -118,7 +118,7 @@ public class PlayerProvider(
             Username = playerProfile.Name,
             Gender = playerProfile.Gender,
             Level = playerProfile.Level,
-            State = Enum.Parse<PlayerState>(playerProfile.Status.State.ToString()),
+            State = Enum.Parse<PlayerState>(playerProfile.Status.State),
             BattleStat = battleStat
         };
     }

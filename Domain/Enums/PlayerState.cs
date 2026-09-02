@@ -8,5 +8,7 @@ public enum PlayerState
     Hospital,
     Jailed,
     Federal,
-    Fallen
+    Fallen,
+    Awoken,
+    Dormant
 }
