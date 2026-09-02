@@ -74,7 +74,7 @@ public class TornClient(HttpClient httpClient, ILogger<TornClient> logger)
                 DaysInFaction = m.DaysInFaction,
                 ActivityStatus = Enum.Parse<ActivityStatus>(m.LastAction.Status.ToString()),
                 CanEarlyDischarge = m.HasEarlyDischarge,
-                CurrentState = Enum.Parse<PlayerState>(m.Status.State.ToString()),
+                CurrentState = Enum.Parse<PlayerState>(m.Status.State),
                 InOc = m.IsInOc,
                 IsRevivable = m.IsRevivable
             })
