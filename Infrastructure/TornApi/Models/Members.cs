@@ -22,15 +22,7 @@ public class FactionMemberDto
 
     public required FactionMemberStatus Status { get; set; }
     [JsonPropertyName("last_action")] public required FactionMemberLastAction LastAction { get; set; }
-    [JsonPropertyName("revive_setting")] public ReviveSetting ReviveSetting { get; set; }
-}
-
-public enum ReviveSetting
-{
-    Everyone,
-    FriendsAndFaction,
-    NoOne,
-    Unknown
+    [JsonPropertyName("revive_setting")] public string ReviveSetting { get; set; }
 }
 
 public class FactionMemberStatus
