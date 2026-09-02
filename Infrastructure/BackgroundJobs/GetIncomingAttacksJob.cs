@@ -114,7 +114,7 @@ public class GetIncomingAttacksJob(
                         : null;
                     publicKey.IncreaseUsage();
 
-                    var retalMessage = CreateRetalMessageAsync(newRetal, factionBasic);
+                    var retalMessage = CreateRetalMessage(newRetal, factionBasic);
                     var notificationCommand = new NotificationCommand
                     {
                         ChannelId = notificationParameters.ChannelId,
@@ -150,7 +150,7 @@ public class GetIncomingAttacksJob(
         }
     }
 
-    private static MessageProperties CreateRetalMessageAsync(Attack attack, FactionBasic? attackerFaction)
+    private static MessageProperties CreateRetalMessage(Attack attack, FactionBasic? attackerFaction)
     {
         var stringBuilder = new StringBuilder();
 
@@ -185,8 +185,8 @@ public class GetIncomingAttacksJob(
         {
             stringBuilder.AppendLine("## Faction info");
             stringBuilder.AppendLine(
-                $"[{attackerFaction}]({ShortUrlHelper.GetFactionUrl(attackerFaction.Id)})");
-            stringBuilder.AppendLine($"Respect: {attackerFaction.Respect}");
+                $"[{attackerFaction.Name}]({ShortUrlHelper.GetFactionUrl(attackerFaction.Id)})");
+            stringBuilder.AppendLine($"Respect: {attackerFaction.Respect.ToString("N0")}");
             stringBuilder.AppendLine($"Rank: {attackerFaction.Rank}");
             stringBuilder.AppendLine($"Member count: {attackerFaction.MemberCount}");
         }

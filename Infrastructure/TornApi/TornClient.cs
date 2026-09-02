@@ -169,7 +169,7 @@ public class TornClient(HttpClient httpClient, ILogger<TornClient> logger)
                 Id = response.Basic.Id,
                 Name = response.Basic.Name,
                 MemberCount = response.Basic.Members,
-                Rank = $"{response.Basic.Rank.Name} {response.Basic.Rank.Position}",
+                Rank = $"{response.Basic.Rank.Name} {response.Basic.Rank.Division}",
                 Respect = Convert.ToUInt32(response.Basic.Respect)
             };
 
