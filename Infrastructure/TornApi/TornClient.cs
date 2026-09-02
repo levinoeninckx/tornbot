@@ -208,11 +208,15 @@ public class TornClient(HttpClient httpClient, ILogger<TornClient> logger)
         return keyInfoResponse?.Info;
     }
 
-    public async Task<FactionBasic?> GetFactionBasicAsync(int factionId, string apiKey, CancellationToken ct = default)
+    public async Task<FactionBasic?> GetFactionBasicAsync(int factionId, ApiKey publicKey,
+        CancellationToken ct = default)
     {
         try
         {
-            var response = await GetAsync<FactionBasicResponse>($"faction/{factionId}/basic", apiKey, ct);
+            var response = await GetAsync<FactionBasicResponse>($"faction/{factionId}/basic", publicKey.Key, ct);
+
+            if (response is null)
+                return null;
 
             var factionBasic = new FactionBasic
             {
@@ -223,11 +227,12 @@ public class TornClient(HttpClient httpClient, ILogger<TornClient> logger)
                 Respect = Convert.ToUInt32(response.Basic.Respect)
             };
 
+            logger.LogInformation("Found faction basic for {id}", factionId);
             return factionBasic;
         }
         catch (Exception e)
         {
-            logger.LogError(e, "Failed to get faction with id {playerId}", factionId);
+            logger.LogError(e, "Failed to get faction with id {factionId}", factionId);
             return null;
         }
     }
