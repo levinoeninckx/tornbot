@@ -42,31 +42,11 @@ public class FactionMemberStatus
     public int? Until { get; set; }
 }
 
-public enum FactionMemberState
-{
-    Abroad,
-    Awoken,
-    Dormant,
-    Fallen,
-    Federal,
-    Hospital,
-    Jail,
-    Okay,
-    Traveling,
-}
-
 public class FactionMemberLastAction
 {
-    public FactionMemberLastActionStatus Status { get; set; }
+    public required string Status { get; set; }
     public int Timestamp { get; set; }
     public string Relative { get; set; } = "";
-}
-
-public enum FactionMemberLastActionStatus
-{
-    Online,
-    Idle,
-    Offline
 }
 
 public class UserResponse

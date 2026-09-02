@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -72,66 +71,13 @@ public class TornClient(HttpClient httpClient, ILogger<TornClient> logger)
                 Name = m.Name,
                 Level = m.Level,
                 DaysInFaction = m.DaysInFaction,
-                ActivityStatus = Enum.Parse<ActivityStatus>(m.LastAction.Status.ToString()),
+                ActivityStatus = Enum.Parse<ActivityStatus>(m.LastAction.Status),
                 CanEarlyDischarge = m.HasEarlyDischarge,
                 CurrentState = Enum.Parse<PlayerState>(m.Status.State),
                 InOc = m.IsInOc,
                 IsRevivable = m.IsRevivable
             })
             .ToImmutableList();
-    }
-
-    public async Task<FactionCrime[]> GetAllFactionCrimesAsync(string apiKey)
-    {
-        const int limit = 100;
-        const int batchSize = 10; // Number of parallel requests to make at once
-        var allCrimes = new ConcurrentBag<FactionCrime>();
-        int currentOffset = 0;
-        bool hasReachedEnd = false;
-
-        while (!hasReachedEnd)
-        {
-            var tasks = new List<Task<FactionCrimesResponse>>();
-
-            // Prepare a batch of requests
-            for (int i = 0; i < batchSize; i++)
-            {
-                int offset = currentOffset + (i * limit);
-                var queryParams = $"offset={offset}&limit={limit}";
-                tasks.Add(GetAsync<FactionCrimesResponse>("faction/crimes", apiKey, queryParameters: queryParams,
-                    ct: CancellationToken.None));
-            }
-
-            // Execute the batch in parallel
-            var results = await Task.WhenAll(tasks);
-
-            foreach (var response in results)
-            {
-                if (response.Crimes == null || response.Crimes.Length == 0)
-                {
-                    hasReachedEnd = true;
-                    continue;
-                }
-
-                foreach (var crime in response.Crimes)
-                {
-                    allCrimes.Add(crime);
-                }
-
-                // If a page is not full, we've reached the end
-                if (response.Crimes.Length < limit)
-                {
-                    hasReachedEnd = true;
-                }
-            }
-
-            if (!hasReachedEnd)
-            {
-                currentOffset += batchSize * limit;
-            }
-        }
-
-        return allCrimes.ToArray();
     }
 
     private async Task<T?> GetAsync<T>(string endpoint, string key, CancellationToken ct = default,
